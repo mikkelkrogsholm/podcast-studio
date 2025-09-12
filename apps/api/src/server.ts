@@ -6,6 +6,10 @@ import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles } from './db/schema.js'
 import { eq } from 'drizzle-orm'
+import dotenv from 'dotenv'
+
+// Load environment variables from .env file in project root
+dotenv.config({ path: path.join(process.cwd(), '../../.env') })
 
 export const app = express()
 export const PORT = 4201

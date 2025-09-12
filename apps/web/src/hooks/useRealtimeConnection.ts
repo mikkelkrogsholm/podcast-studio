@@ -67,14 +67,8 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       });
 
       if (!tokenResponse.ok) {
-        // For testing purposes, if we can't get a real token due to missing API key,
-        // we'll simulate a successful connection
         const errorData = await tokenResponse.json();
-        if (errorData.error?.includes('OPENAI_API_KEY')) {
-          addEvent('connected', 'Mock connection (no API key available)');
-          return;
-        }
-        throw new Error(`Token request failed: ${tokenResponse.status}`);
+        throw new Error(errorData.error || `Token request failed: ${tokenResponse.status}`);
       }
 
       const tokenData = await tokenResponse.json();
