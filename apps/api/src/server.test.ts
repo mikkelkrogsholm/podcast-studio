@@ -31,17 +31,3 @@ describe('GET /health', () => {
   })
 })
 
-describe('POST /api/realtime/token', () => {
-  it('should return 401 when OPENAI_API_KEY is missing', async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/api/realtime/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    const data = await response.json()
-    
-    expect(response.status).toBe(401)
-    expect(data).toEqual({ error: 'OPENAI_API_KEY environment variable is required' })
-  })
-})

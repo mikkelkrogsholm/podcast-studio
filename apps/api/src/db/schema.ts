@@ -7,3 +7,15 @@ export const sessions = sqliteTable('sessions', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
+
+export const audioFiles = sqliteTable('audio_files', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => sessions.id),
+  speaker: text('speaker').notNull(), // 'mikkel' or 'freja'
+  filePath: text('file_path').notNull(),
+  size: integer('size').default(0),
+  duration: integer('duration'), // in seconds
+  format: text('format').default('wav'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+})
