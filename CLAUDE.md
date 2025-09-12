@@ -128,6 +128,10 @@ Additional documentation is available in the `docs/` folder:
 
 - **[testing-guide.md](docs/testing-guide.md)** - Complete guide for running API and E2E tests, including troubleshooting
 - **[webrtc-handshake.md](docs/webrtc-handshake.md)** - WebRTC connection implementation details and security model
+- **[branch-summary.md](docs/branch-summary.md)** - Feature branch implementation summary and progress tracking
+- **[internationalization.md](docs/internationalization.md)** - i18n implementation guide for Danish/English support
+- **[openai-integration.md](docs/openai-integration.md)** - OpenAI Realtime API setup and connection guide
+- **[step-03-implementation.md](docs/step-03-implementation.md)** - Technical details for Step 3 audio recording implementation
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
