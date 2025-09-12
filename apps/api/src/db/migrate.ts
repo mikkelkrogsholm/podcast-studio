@@ -35,7 +35,10 @@ export async function runMigrations(): Promise<void> {
     
     // Apply migrations starting from current version
     for (let i = currentVersion; i < migrations.length; i++) {
-      sqlite.exec(migrations[i])
+      const migration = migrations[i]
+      if (migration) {
+        sqlite.exec(migration)
+      }
     }
     
     // Update user_version to reflect the latest migration

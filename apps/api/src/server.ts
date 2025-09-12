@@ -1,32 +1,32 @@
-import express from 'express'
+import express, { type Express } from 'express'
 import cors from 'cors'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles } from './db/schema.js'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import dotenv from 'dotenv'
 
 // Load environment variables from .env file in project root
 dotenv.config({ path: path.join(process.cwd(), '../../.env') })
 
-export const app = express()
+export const app: Express = express()
 export const PORT = 4201
 
 app.use(cors())
 app.use(express.json())
 
 // Get OpenAI API key from environment
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const OPENAI_API_KEY = process.env['OPENAI_API_KEY']
 
 // Health endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ ok: true })
 })
 
 // Get ephemeral token for OpenAI Realtime API
-app.post('/api/realtime/token', async (req, res) => {
+app.post('/api/realtime/token', async (_req, res) => {
   try {
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: 'OPENAI_API_KEY not configured in environment' })
@@ -53,10 +53,10 @@ app.post('/api/realtime/token', async (req, res) => {
     }
 
     const data = await response.json()
-    res.json(data)
+    return res.json(data)
   } catch (error) {
     console.error('Failed to get OpenAI token:', error)
-    res.status(500).json({ error: 'Failed to get OpenAI token' })
+    return res.status(500).json({ error: 'Failed to get OpenAI token' })
   }
 })
 
@@ -97,13 +97,13 @@ app.post('/api/session', async (req, res) => {
       updatedAt: now,
     })
 
-    res.json({ 
+    return res.json({ 
       sessionId,
       mikkelAudioFile: `sessions/${sessionId}/mikkel.wav`
     })
   } catch (error) {
     console.error('Failed to create session:', error)
-    res.status(500).json({ error: 'Failed to create session' })
+    return res.status(500).json({ error: 'Failed to create session' })
   }
 })
 
@@ -141,10 +141,14 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
         size: stats.size,
         updatedAt: now 
       })
-      .where(eq(audioFiles.sessionId, sessionId))
-      .where(eq(audioFiles.speaker, speaker))
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, speaker)
+        )
+      )
 
-    res.json({ 
+    return res.json({ 
       status: 'success',
       chunkSize: req.body.length,
       totalSize: stats.size
@@ -152,7 +156,7 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
 
   } catch (error) {
     console.error('Failed to upload audio chunk:', error)
-    res.status(500).json({ error: 'Failed to upload audio chunk' })
+    return res.status(500).json({ error: 'Failed to upload audio chunk' })
   }
 })
 
@@ -197,10 +201,14 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
         size: finalWavData.length,
         updatedAt: now
       })
-      .where(eq(audioFiles.sessionId, sessionId))
-      .where(eq(audioFiles.speaker, speaker))
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, speaker)
+        )
+      )
 
-    res.json({
+    return res.json({
       status: 'finalized',
       size: finalWavData.length,
       format: 'wav'
@@ -208,7 +216,7 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
 
   } catch (error) {
     console.error('Failed to finalize audio file:', error)
-    res.status(500).json({ error: 'Failed to finalize audio file' })
+    return res.status(500).json({ error: 'Failed to finalize audio file' })
   }
 })
 
@@ -224,8 +232,12 @@ app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
     // Get audio file from database
     const audioFileEntry = await db.select()
       .from(audioFiles)
-      .where(eq(audioFiles.sessionId, sessionId))
-      .where(eq(audioFiles.speaker, speaker))
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, speaker)
+        )
+      )
       .limit(1)
 
     if (audioFileEntry.length === 0) {
@@ -233,8 +245,11 @@ app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
     }
 
     const audioFile = audioFileEntry[0]
+    if (!audioFile) {
+      return res.status(404).json({ error: 'Audio file not found' })
+    }
 
-    res.json({
+    return res.json({
       size: audioFile.size || 0,
       format: audioFile.format || 'wav',
       duration: audioFile.duration || undefined
@@ -242,7 +257,7 @@ app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
 
   } catch (error) {
     console.error('Failed to get audio file info:', error)
-    res.status(500).json({ error: 'Failed to get audio file info' })
+    return res.status(500).json({ error: 'Failed to get audio file info' })
   }
 })
 
@@ -272,40 +287,6 @@ function createWavHeader(dataLength: number): Buffer {
 
   return header
 }
-
-// Token endpoint for OpenAI Realtime API
-app.post('/api/realtime/token', async (req, res) => {
-  if (!OPENAI_API_KEY) {
-    return res.status(401).json({ 
-      error: 'OPENAI_API_KEY environment variable is required' 
-    })
-  }
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        voice: 'alloy'
-      })
-    })
-
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, await response.text())
-      return res.status(response.status).json({ error: 'Failed to create session' })
-    }
-
-    const data = await response.json()
-    res.json(data)
-  } catch (error) {
-    console.error('Token endpoint error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
 
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {

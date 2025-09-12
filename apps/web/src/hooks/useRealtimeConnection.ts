@@ -27,7 +27,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     const event: ConnectionEvent = {
       timestamp: new Date(),
       status,
-      message
+      ...(message && { message })
     };
     setEvents(prev => [...prev, event]);
     setStatus(status);
@@ -88,13 +88,15 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       peerConnectionRef.current = pc;
 
       // Handle incoming audio
-      pc.ontrack = (e) => {
+      pc.ontrack = (_e) => {
         addEvent('connecting', 'Received remote audio stream');
         // In the future, we'll handle the AI audio here
       };
 
       // Add local audio track
-      pc.addTrack(audioTrack, stream);
+      if (audioTrack) {
+        pc.addTrack(audioTrack, stream);
+      }
 
       // Create data channel for events
       const dc = pc.createDataChannel('oai-events');
@@ -131,7 +133,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       // Send offer to OpenAI's WebRTC endpoint
       const response = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17', {
         method: 'POST',
-        body: pc.localDescription?.sdp,
+        body: pc.localDescription?.sdp || '',
         headers: {
           'Authorization': `Bearer ${ephemeralToken}`,
           'Content-Type': 'application/sdp'
