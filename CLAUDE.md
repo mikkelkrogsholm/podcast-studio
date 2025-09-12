@@ -9,8 +9,8 @@ This is a browser-based podcast studio built on OpenAI's Realtime API, designed 
 ## Architecture
 
 ### Monorepo Structure
-- **apps/web**: Next.js/React frontend for UI and audio capture
-- **apps/api**: Node.js/TypeScript backend for OpenAI proxy and data persistence  
+- **apps/web**: Next.js/React frontend for UI and audio capture (port 4200)
+- **apps/api**: Node.js/TypeScript backend for OpenAI proxy and data persistence (port 4201)
 - **packages/shared**: Shared TypeScript types and Zod utilities
 
 ### Core Technologies
@@ -34,8 +34,8 @@ This is a browser-based podcast studio built on OpenAI's Realtime API, designed 
 pnpm install
 
 # Development servers (run in parallel)
-pnpm dev:api    # Start API server
-pnpm dev:web    # Start web frontend
+pnpm dev:api    # Start API server on port 4201
+pnpm dev:web    # Start web frontend on port 4200
 
 # Testing
 pnpm test       # Run all tests

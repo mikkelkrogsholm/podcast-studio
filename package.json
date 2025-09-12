@@ -1,0 +1,28 @@
+{
+  "name": "podcast-studio",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:api": "pnpm --filter @podcast-studio/api dev",
+    "dev:web": "pnpm --filter @podcast-studio/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:api": "pnpm --filter @podcast-studio/api test",
+    "test:web": "pnpm --filter @podcast-studio/web test",
+    "test:e2e": "pnpm --filter @podcast-studio/web test:e2e",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @podcast-studio/api db:migrate",
+    "db:seed": "pnpm --filter @podcast-studio/api db:seed"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.19.0",
+    "@typescript-eslint/parser": "^8.19.0",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.1"
+}
