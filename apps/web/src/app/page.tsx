@@ -1,20 +1,24 @@
 'use client';
 
 import { useRealtimeConnection } from '../hooks/useRealtimeConnection';
-import { useAudioRecording } from '../hooks/useAudioRecording';
+import { useDualTrackRecording } from '../hooks/useDualTrackRecording';
+import { DualTrackControls } from '../components/DualTrackControls';
 import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
-  const { status, events, connect, disconnect } = useRealtimeConnection();
+  const { status, events, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
   const { 
     status: recordingStatus, 
     isRecording, 
     error: recordingError, 
-    recordedDuration, 
+    recordedDuration,
+    volumeLevels,
+    muteState,
     startRecording, 
-    stopRecording 
-  } = useAudioRecording();
+    stopRecording,
+    setMute
+  } = useDualTrackRecording();
   
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { language, setLanguage, t } = useLanguage();
@@ -42,7 +46,7 @@ export default function HomePage() {
 
       const { sessionId } = await response.json();
       setCurrentSessionId(sessionId);
-      await startRecording(sessionId);
+      await startRecording(sessionId, remoteAudioStream);
     } catch (error) {
       console.error('Failed to start recording:', error);
     }
@@ -199,6 +203,16 @@ export default function HomePage() {
             </div>
           )}
         </div>
+      </div>
+      
+      {/* Dual Track Audio Controls */}
+      <div className="mb-8 p-6 border rounded-lg bg-gray-50">
+        <DualTrackControls
+          volumeLevels={volumeLevels}
+          muteState={muteState}
+          isRecording={isRecording}
+          onMuteToggle={setMute}
+        />
       </div>
       
       {/* Connection Section */}

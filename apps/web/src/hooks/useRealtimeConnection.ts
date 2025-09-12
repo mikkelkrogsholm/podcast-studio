@@ -11,6 +11,7 @@ interface ConnectionEvent {
 interface RealtimeConnectionState {
   status: ConnectionStatus;
   events: ConnectionEvent[];
+  remoteAudioStream: MediaStream | null;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
@@ -18,6 +19,7 @@ interface RealtimeConnectionState {
 export function useRealtimeConnection(): RealtimeConnectionState {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [events, setEvents] = useState<ConnectionEvent[]>([]);
+  const [remoteAudioStream, setRemoteAudioStream] = useState<MediaStream | null>(null);
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -48,6 +50,8 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    
+    setRemoteAudioStream(null);
   }, []);
 
   const connect = useCallback(async () => {
@@ -87,10 +91,14 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       const pc = new RTCPeerConnection();
       peerConnectionRef.current = pc;
 
-      // Handle incoming audio
-      pc.ontrack = (_e) => {
+      // Handle incoming audio from OpenAI
+      pc.ontrack = (event) => {
         addEvent('connecting', 'Received remote audio stream');
-        // In the future, we'll handle the AI audio here
+        const [remoteStream] = event.streams;
+        if (remoteStream) {
+          setRemoteAudioStream(remoteStream);
+          addEvent('connected', 'AI audio stream ready for capture');
+        }
       };
 
       // Add local audio track
@@ -175,6 +183,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   return {
     status,
     events,
+    remoteAudioStream,
     connect,
     disconnect
   };

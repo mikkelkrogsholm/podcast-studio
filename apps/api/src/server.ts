@@ -82,24 +82,40 @@ app.post('/api/session', async (req, res) => {
     await fs.mkdir(sessionsDir, { recursive: true })
     await fs.mkdir(sessionDir, { recursive: true })
 
-    // Create audio file entry for mikkel
+    // Create audio file entries for both speakers
     const mikkelAudioFileId = randomUUID()
+    const frejaAudioFileId = randomUUID()
     const mikkelFilePath = path.join(sessionDir, 'mikkel.wav')
+    const frejaFilePath = path.join(sessionDir, 'freja.wav')
     
-    await db.insert(audioFiles).values({
-      id: mikkelAudioFileId,
-      sessionId,
-      speaker: 'mikkel',
-      filePath: mikkelFilePath,
-      size: 0,
-      format: 'wav',
-      createdAt: now,
-      updatedAt: now,
-    })
+    // Insert both audio file records
+    await db.insert(audioFiles).values([
+      {
+        id: mikkelAudioFileId,
+        sessionId,
+        speaker: 'mikkel',
+        filePath: mikkelFilePath,
+        size: 0,
+        format: 'wav',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: frejaAudioFileId,
+        sessionId,
+        speaker: 'freja',
+        filePath: frejaFilePath,
+        size: 0,
+        format: 'wav',
+        createdAt: now,
+        updatedAt: now,
+      }
+    ])
 
     return res.json({ 
       sessionId,
-      mikkelAudioFile: `sessions/${sessionId}/mikkel.wav`
+      mikkelAudioFile: `sessions/${sessionId}/mikkel.wav`,
+      frejaAudioFile: `sessions/${sessionId}/freja.wav`
     })
   } catch (error) {
     console.error('Failed to create session:', error)
