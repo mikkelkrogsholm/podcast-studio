@@ -1,7 +1,7 @@
 import express from 'express'
 
 export const app = express()
-export const PORT = 3001
+export const PORT = 4201
 
 app.use(express.json())
 
