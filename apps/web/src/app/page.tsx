@@ -3,6 +3,7 @@
 import { useRealtimeConnection } from '../hooks/useRealtimeConnection';
 import { useAudioRecording } from '../hooks/useAudioRecording';
 import { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
   const { status, events, connect, disconnect } = useRealtimeConnection();
@@ -16,6 +17,7 @@ export default function HomePage() {
   } = useAudioRecording();
   
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const { language, setLanguage, t } = useLanguage();
 
   const handleStartRecording = async () => {
     if (isRecording) {
@@ -60,7 +62,11 @@ export default function HomePage() {
   const handleConnect = () => {
     if (status === 'disconnected' || status === 'error') {
       connect();
-    } else if (status === 'connected') {
+    }
+  };
+
+  const handleDisconnect = () => {
+    if (status === 'connected') {
       disconnect();
     }
   };
@@ -68,23 +74,68 @@ export default function HomePage() {
   const getButtonText = () => {
     switch (status) {
       case 'connecting':
-        return 'Connecting...';
+        return t.openaiConnection.connecting;
       case 'connected':
-        return 'Connected';
+        return t.openaiConnection.connected;
       case 'error':
-        return 'Connect';
+        return t.openaiConnection.connect;
       default:
-        return 'Connect';
+        return t.openaiConnection.connect;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'connecting':
+        return t.openaiConnection.connecting;
+      case 'connected':
+        return t.openaiConnection.connected;
+      case 'disconnected':
+        return t.openaiConnection.disconnected;
+      case 'recording':
+        return t.audioRecording.recording;
+      case 'idle':
+        return t.audioRecording.idle;
+      case 'error':
+        return t.audioRecording.error;
+      case 'requesting-permission':
+        return t.audioRecording.requestingPermission;
+      default:
+        return status;
     }
   };
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Podcast Studio</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">{t.title}</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLanguage('da')}
+            className={`px-3 py-1 rounded ${
+              language === 'da' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-200 hover:bg-gray-300'
+            }`}
+          >
+            {t.language.danish}
+          </button>
+          <button
+            onClick={() => setLanguage('en')}
+            className={`px-3 py-1 rounded ${
+              language === 'en' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-200 hover:bg-gray-300'
+            }`}
+          >
+            {t.language.english}
+          </button>
+        </div>
+      </div>
       
       {/* Recording Section */}
       <div className="mb-8 p-6 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">Audio Recording</h2>
+        <h2 className="text-xl font-semibold mb-4">{t.audioRecording.title}</h2>
         
         <div className="flex items-center space-x-4 mb-4">
           <button 
@@ -100,7 +151,9 @@ export default function HomePage() {
               }
             `}
           >
-            {recordingStatus === 'requesting-permission' ? 'Requesting Permission...' : 'Start Recording'}
+            {recordingStatus === 'requesting-permission' 
+              ? t.audioRecording.requestingPermission 
+              : t.audioRecording.startRecording}
           </button>
           
           <button 
@@ -114,13 +167,13 @@ export default function HomePage() {
               }
             `}
           >
-            Stop Recording
+            {t.audioRecording.stopRecording}
           </button>
         </div>
         
         <div className="space-y-2">
           <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium">Status:</span>
+            <span className="text-sm font-medium">{t.audioRecording.status}:</span>
             <span className={`
               capitalize font-medium text-sm
               ${recordingStatus === 'recording' ? 'text-red-600' : ''}
@@ -128,19 +181,21 @@ export default function HomePage() {
               ${recordingStatus === 'error' ? 'text-red-600' : ''}
               ${recordingStatus === 'idle' ? 'text-gray-600' : ''}
             `}>
-              {recordingStatus === 'recording' ? `Recording (${formatTime(recordedDuration)})` : recordingStatus}
+              {recordingStatus === 'recording' 
+                ? `${t.audioRecording.recording} (${formatTime(recordedDuration)})` 
+                : getStatusText(recordingStatus)}
             </span>
           </div>
           
           {currentSessionId && (
             <div className="text-sm text-gray-600">
-              Session ID: {currentSessionId}
+              {t.audioRecording.sessionId}: {currentSessionId}
             </div>
           )}
           
           {recordingError && (
             <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-              Error: {recordingError}
+              {t.audioRecording.error}: {recordingError}
             </div>
           )}
         </div>
@@ -148,28 +203,39 @@ export default function HomePage() {
       
       {/* Connection Section */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">OpenAI Connection</h2>
-        <button 
-          onClick={handleConnect}
-          disabled={status === 'connecting' || status === 'connected'}
-          className={`
-            px-6 py-3 rounded-lg font-medium transition-colors
-            ${status === 'connected' 
-              ? 'bg-green-500 text-white cursor-not-allowed' 
-              : status === 'connecting'
-              ? 'bg-yellow-500 text-white cursor-not-allowed'
-              : status === 'error'
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }
-            ${(status === 'connecting' || status === 'connected') ? 'opacity-75' : ''}
-          `}
-        >
-          {getButtonText()}
-        </button>
+        <h2 className="text-xl font-semibold mb-4">{t.openaiConnection.title}</h2>
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={handleConnect}
+            disabled={status === 'connecting' || status === 'connected'}
+            className={`
+              px-6 py-3 rounded-lg font-medium transition-colors
+              ${status === 'connected' 
+                ? 'bg-green-500 text-white cursor-not-allowed' 
+                : status === 'connecting'
+                ? 'bg-yellow-500 text-white cursor-not-allowed'
+                : status === 'error'
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }
+              ${(status === 'connecting' || status === 'connected') ? 'opacity-75' : ''}
+            `}
+          >
+            {getButtonText()}
+          </button>
+          
+          {status === 'connected' && (
+            <button 
+              onClick={handleDisconnect}
+              className="px-6 py-3 rounded-lg font-medium transition-colors bg-red-500 hover:bg-red-600 text-white"
+            >
+              {t.openaiConnection.disconnect}
+            </button>
+          )}
+        </div>
         
         <div className="mt-4">
-          <span className="text-sm font-medium">Status: </span>
+          <span className="text-sm font-medium">{t.openaiConnection.status}: </span>
           <span className={`
             capitalize font-medium
             ${status === 'connected' ? 'text-green-600' : ''}
@@ -177,14 +243,14 @@ export default function HomePage() {
             ${status === 'error' ? 'text-red-600' : ''}
             ${status === 'disconnected' ? 'text-gray-600' : ''}
           `}>
-            {status}
+            {getStatusText(status)}
           </span>
         </div>
       </div>
 
       {events.length > 0 && (
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-3">Connection Events</h2>
+          <h2 className="text-lg font-semibold mb-3">{t.openaiConnection.connectionEvents}</h2>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {events.map((event, index) => (
               <div 
@@ -199,7 +265,7 @@ export default function HomePage() {
                     ${event.status === 'error' ? 'text-red-600' : ''}
                     ${event.status === 'disconnected' ? 'text-gray-600' : ''}
                   `}>
-                    {event.status}
+                    {getStatusText(event.status)}
                   </span>
                   {event.message && (
                     <span className="ml-2 text-gray-700">

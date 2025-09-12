@@ -21,6 +21,41 @@ app.get('/health', (req, res) => {
   res.json({ ok: true })
 })
 
+// Get ephemeral token for OpenAI Realtime API
+app.post('/api/realtime/token', async (req, res) => {
+  try {
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OPENAI_API_KEY not configured in environment' })
+    }
+
+    // Create ephemeral token with OpenAI
+    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-realtime-preview-2024-12-17',
+        voice: 'shimmer',
+        instructions: 'You are a helpful AI assistant in a podcast studio.'
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('OpenAI API error:', error)
+      return res.status(response.status).json({ error: 'Failed to create session with OpenAI' })
+    }
+
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to get OpenAI token:', error)
+    res.status(500).json({ error: 'Failed to get OpenAI token' })
+  }
+})
+
 // Create a new session
 app.post('/api/session', async (req, res) => {
   try {
