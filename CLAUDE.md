@@ -122,6 +122,13 @@ Build precise API endpoints with validation:
 - CORS locked to application origin in production
 - Structured logging without sensitive data
 
+## Documentation
+
+Additional documentation is available in the `docs/` folder:
+
+- **[testing-guide.md](docs/testing-guide.md)** - Complete guide for running API and E2E tests, including troubleshooting
+- **[webrtc-handshake.md](docs/webrtc-handshake.md)** - WebRTC connection implementation details and security model
+
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
 - **Persona/context locked per session**: Cannot be changed mid-recording
