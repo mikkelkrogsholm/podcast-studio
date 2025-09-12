@@ -8,6 +8,20 @@ const migrations = [
     status TEXT DEFAULT 'pending',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS audio_files (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    speaker TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER DEFAULT 0,
+    duration INTEGER DEFAULT 0,
+    format TEXT DEFAULT 'webm',
+    sample_rate INTEGER DEFAULT 48000,
+    channels INTEGER DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions (id)
   )`
 ]
 

@@ -1,9 +1,61 @@
 'use client';
 
 import { useRealtimeConnection } from '../hooks/useRealtimeConnection';
+import { useAudioRecording } from '../hooks/useAudioRecording';
+import { useState } from 'react';
 
 export default function HomePage() {
   const { status, events, connect, disconnect } = useRealtimeConnection();
+  const { 
+    status: recordingStatus, 
+    isRecording, 
+    error: recordingError, 
+    recordedDuration, 
+    startRecording, 
+    stopRecording 
+  } = useAudioRecording();
+  
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  const handleStartRecording = async () => {
+    if (isRecording) {
+      return;
+    }
+
+    try {
+      // Create a new session
+      const response = await fetch('http://localhost:4201/api/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: `Recording ${new Date().toLocaleString()}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+
+      const { sessionId } = await response.json();
+      setCurrentSessionId(sessionId);
+      await startRecording(sessionId);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    await stopRecording();
+    setCurrentSessionId(null);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleConnect = () => {
     if (status === 'disconnected' || status === 'error') {
@@ -28,9 +80,75 @@ export default function HomePage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">App ready</h1>
+      <h1 className="text-2xl font-bold mb-6">Podcast Studio</h1>
       
+      {/* Recording Section */}
+      <div className="mb-8 p-6 border rounded-lg bg-gray-50">
+        <h2 className="text-xl font-semibold mb-4">Audio Recording</h2>
+        
+        <div className="flex items-center space-x-4 mb-4">
+          <button 
+            onClick={handleStartRecording}
+            disabled={isRecording || recordingStatus === 'requesting-permission'}
+            className={`
+              px-6 py-3 rounded-lg font-medium transition-colors
+              ${isRecording 
+                ? 'bg-gray-400 text-white cursor-not-allowed' 
+                : recordingStatus === 'requesting-permission'
+                ? 'bg-yellow-500 text-white cursor-not-allowed'
+                : 'bg-red-500 hover:bg-red-600 text-white'
+              }
+            `}
+          >
+            {recordingStatus === 'requesting-permission' ? 'Requesting Permission...' : 'Start Recording'}
+          </button>
+          
+          <button 
+            onClick={handleStopRecording}
+            disabled={!isRecording}
+            className={`
+              px-6 py-3 rounded-lg font-medium transition-colors
+              ${!isRecording 
+                ? 'bg-gray-400 text-white cursor-not-allowed' 
+                : 'bg-gray-600 hover:bg-gray-700 text-white'
+              }
+            `}
+          >
+            Stop Recording
+          </button>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium">Status:</span>
+            <span className={`
+              capitalize font-medium text-sm
+              ${recordingStatus === 'recording' ? 'text-red-600' : ''}
+              ${recordingStatus === 'requesting-permission' ? 'text-yellow-600' : ''}
+              ${recordingStatus === 'error' ? 'text-red-600' : ''}
+              ${recordingStatus === 'idle' ? 'text-gray-600' : ''}
+            `}>
+              {recordingStatus === 'recording' ? `Recording (${formatTime(recordedDuration)})` : recordingStatus}
+            </span>
+          </div>
+          
+          {currentSessionId && (
+            <div className="text-sm text-gray-600">
+              Session ID: {currentSessionId}
+            </div>
+          )}
+          
+          {recordingError && (
+            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              Error: {recordingError}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Connection Section */}
       <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">OpenAI Connection</h2>
         <button 
           onClick={handleConnect}
           disabled={status === 'connecting' || status === 'connected'}
