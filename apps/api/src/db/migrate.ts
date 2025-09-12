@@ -14,7 +14,7 @@ const migrations = [
     session_id TEXT NOT NULL,
     speaker TEXT NOT NULL,
     file_path TEXT NOT NULL,
-    file_size INTEGER DEFAULT 0,
+    size INTEGER DEFAULT 0,
     duration INTEGER DEFAULT 0,
     format TEXT DEFAULT 'webm',
     sample_rate INTEGER DEFAULT 48000,
