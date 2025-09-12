@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('homepage shows App ready', async ({ page }) => {
+test('homepage shows Podcast Studio', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('text=App ready')).toBeVisible();
+  await expect(page.locator('h1')).toHaveText('Podcast Studio');
 });
