@@ -3,11 +3,15 @@ import type { Server } from 'http'
 import { app } from '../src/server.js'
 import { readFileSync, rmSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { runMigrations } from '../src/db/migrate.js'
 
 const TEST_PORT = 4298 // Different port for audio tests
 let server: Server
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Run migrations to create tables
+  await runMigrations()
+  
   return new Promise<void>((resolve) => {
     server = app.listen(TEST_PORT, () => {
       resolve()
