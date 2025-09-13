@@ -225,9 +225,9 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
         <div>
           <label htmlFor="temperature" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.temperature}: {settings['temperature'].toFixed(1)}
-            {settings.model === 'gpt-realtime' && (
-              <span className="text-xs text-gray-500 ml-2">(Not supported in GPT Realtime)</span>
-            )}
+            <span className="text-xs text-amber-600 ml-2">
+              ⚠️ {t.settings.notSupportedInRealtime || 'Not supported in current models'}
+            </span>
           </label>
           <Input
             id="temperature"
@@ -239,7 +239,8 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             value={settings['temperature'].toFixed(1)}
             onChange={(e) => handleChange('temperature', e.target.value)}
             onBlur={() => handleBlur('temperature')}
-            disabled={disabled}
+            disabled={true}
+            className="opacity-50 cursor-not-allowed"
           />
           {errors['temperature'] && (
             <div data-testid="temperature-error" className="mt-1 text-sm text-red-600">
@@ -252,6 +253,9 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
         <div>
           <label htmlFor="top_p" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.topP}: {settings['top_p'].toFixed(1)}
+            <span className="text-xs text-amber-600 ml-2">
+              ⚠️ {t.settings.notSupportedInRealtime || 'Not supported in current models'}
+            </span>
           </label>
           <Input
             id="top_p"
@@ -263,7 +267,8 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             value={settings['top_p'].toFixed(1)}
             onChange={(e) => handleChange('top_p', e.target.value)}
             onBlur={() => handleBlur('top_p')}
-            disabled={disabled}
+            disabled={true}
+            className="opacity-50 cursor-not-allowed"
           />
           {errors['top_p'] && (
             <div data-testid="top_p-error" className="mt-1 text-sm text-red-600">

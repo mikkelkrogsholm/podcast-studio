@@ -127,6 +127,7 @@ interface Translations {
     silenceThreshold: string;
     lockedMessage: string;
     validationError: string;
+    notSupportedInRealtime: string;
     pleaseFixErrors: string;
     personaPrompt: string;
     contextPrompt: string;
@@ -305,6 +306,7 @@ const translations: Record<Language, Translations> = {
       silenceThreshold: 'Stilhedstærskel',
       lockedMessage: 'Indstillinger er låst under optagelse',
       validationError: 'Ugyldig værdi',
+      notSupportedInRealtime: 'Ikke understøttet i nuværende model',
       pleaseFixErrors: 'Ret venligst fejlene før du fortsætter',
       personaPrompt: 'Persona (Freja)',
       contextPrompt: 'Dagens kontekst',
@@ -481,6 +483,7 @@ const translations: Record<Language, Translations> = {
       silenceThreshold: 'Silence Threshold',
       lockedMessage: 'Settings are locked during recording',
       validationError: 'Invalid value',
+      notSupportedInRealtime: 'Not supported in current model',
       pleaseFixErrors: 'Please fix the errors before continuing',
       personaPrompt: 'Persona (Freja)',
       contextPrompt: 'Today\'s Context',
