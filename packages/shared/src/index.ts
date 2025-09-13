@@ -30,7 +30,7 @@ export type AudioFileInfoResponse = z.infer<typeof AudioFileInfoResponseSchema>;
 
 // Message schemas for Step 06: Transcript
 export const CreateMessageRequestSchema = z.object({
-  speaker: z.enum(['mikkel', 'freja']),
+  speaker: z.enum(['human', 'ai', 'mikkel', 'freja']),
   text: z.string().min(1),
   ts_ms: z.number().min(0),
   raw_json: z.record(z.any()), // Store the original OpenAI event data
@@ -39,7 +39,7 @@ export const CreateMessageRequestSchema = z.object({
 export const MessageResponseSchema = z.object({
   id: z.string(),
   sessionId: z.string(),
-  speaker: z.enum(['mikkel', 'freja']),
+  speaker: z.enum(['human', 'ai']),
   text: z.string(),
   ts_ms: z.number(),
   raw_json: z.record(z.any()),

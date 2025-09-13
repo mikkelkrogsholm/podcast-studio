@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test('Record mic audio to mikkel.wav file', async ({ page }) => {
+test('Topbar record/pause/stop buttons are present', async ({ page }) => {
   // Enable console logging to see any errors
   page.on('console', msg => {
     if (msg.type() === 'error') {
@@ -12,18 +12,18 @@ test('Record mic audio to mikkel.wav file', async ({ page }) => {
   await page.goto('/')
   
   // Wait for the page to load - look for the Podcast Studio title
-  await expect(page.locator('h1', { hasText: 'Podcast Studio' })).toBeVisible()
+  await expect(page.locator('text=Podcast Studio')).toBeVisible()
   
-  // Look for a Start Recording button
-  const startButton = page.locator('button', { hasText: 'Start Recording' })
-  await expect(startButton).toBeVisible()
+  // Look for topbar record button by aria-label (DA/EN)
+  const recordBtn = page.getByRole('button', { name: /Record|Start/i })
+  await expect(recordBtn).toBeVisible()
   
   // Grant microphone permission before clicking
   // This should work with the fake device flags
   await page.context().grantPermissions(['microphone'])
   
-  // Click Start Recording button
-  await startButton.click()
+  // Click Record (may show alert if not connected; that's ok for smoke)
+  await recordBtn.click()
   
   // Wait for recording to start (up to 5 seconds)
   // Check if the button becomes disabled or if we see any status change
@@ -39,8 +39,8 @@ test('Record mic audio to mikkel.wav file', async ({ page }) => {
   }
   
   // For now, just verify the UI elements are present and clickable
-  // The actual recording may not work in headless mode with fake devices
-  const stopButton = page.locator('button', { hasText: 'Stop Recording' })
+  // The actual recording is verified via API tests
+  const stopButton = page.getByRole('button', { name: /Stop/i })
   
   // If recording started, stop it
   const isStopEnabled = await stopButton.isEnabled().catch(() => false)

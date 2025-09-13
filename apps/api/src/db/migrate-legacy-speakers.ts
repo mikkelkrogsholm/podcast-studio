@@ -1,78 +1,70 @@
-#!/usr/bin/env tsx
+import { db, sqlite } from './index.js'
+import { audioFiles, messages } from './schema.js'
+import { eq, or } from 'drizzle-orm'
+import path from 'path'
+import { promises as fs } from 'fs'
 
-import { db } from './index.js';
-import { messages, audioFiles } from './schema.js';
-import { eq } from 'drizzle-orm';
-
-function migrateLegacySpeakers() {
-  console.log('Starting legacy speaker migration...');
-  
-  try {
-    // Update messages table
-    const messageUpdates = db.transaction((tx) => {
-      // Update 'host' to 'mikkel'
-      const hostToMikkel = tx
-        .update(messages)
-        .set({ speaker: 'mikkel' })
-        .where(eq(messages.speaker, 'host'))
-        .returning()
-        .all();
-      
-      // Update 'ai' to 'freja'
-      const aiToFreja = tx
-        .update(messages)
-        .set({ speaker: 'freja' })
-        .where(eq(messages.speaker, 'ai'))
-        .returning()
-        .all();
-      
-      return {
-        hostToMikkel: hostToMikkel.length,
-        aiToFreja: aiToFreja.length
-      };
-    })();
-    
-    console.log(`Updated messages table:`);
-    console.log(`  - 'host' -> 'mikkel': ${messageUpdates.hostToMikkel} records`);
-    console.log(`  - 'ai' -> 'freja': ${messageUpdates.aiToFreja} records`);
-    
-    // Update audioFiles table
-    const audioUpdates = db.transaction((tx) => {
-      // Update 'host' to 'mikkel'
-      const hostToMikkel = tx
-        .update(audioFiles)
-        .set({ speaker: 'mikkel' })
-        .where(eq(audioFiles.speaker, 'host'))
-        .returning()
-        .all();
-      
-      // Update 'ai' to 'freja'
-      const aiToFreja = tx
-        .update(audioFiles)
-        .set({ speaker: 'freja' })
-        .where(eq(audioFiles.speaker, 'ai'))
-        .returning()
-        .all();
-      
-      return {
-        hostToMikkel: hostToMikkel.length,
-        aiToFreja: aiToFreja.length
-      };
-    })();
-    
-    console.log(`Updated audioFiles table:`);
-    console.log(`  - 'host' -> 'mikkel': ${audioUpdates.hostToMikkel} records`);
-    console.log(`  - 'ai' -> 'freja': ${audioUpdates.aiToFreja} records`);
-    
-    console.log('\nMigration completed successfully!');
-    
-  } catch (error) {
-    console.error('Migration failed:', error);
-    process.exit(1);
-  }
-  
-  process.exit(0);
+async function fileExists(p: string) {
+  try { await fs.stat(p); return true } catch { return false }
 }
 
-// Run migration
-migrateLegacySpeakers();
+async function renameIfNeeded(oldPath: string, newPath: string) {
+  if (oldPath === newPath) return false
+  const hasOld = await fileExists(oldPath)
+  if (!hasOld) return false
+  const hasNew = await fileExists(newPath)
+  if (hasNew) return false
+  await fs.mkdir(path.dirname(newPath), { recursive: true })
+  await fs.rename(oldPath, newPath)
+  return true
+}
+
+async function run() {
+  console.log('Starting legacy speaker migration (mikkel/freja → human/ai)')
+  const now = Date.now()
+
+  const legacy = await db.select().from(audioFiles).where(
+    or(eq(audioFiles.speaker, 'mikkel'), eq(audioFiles.speaker, 'freja'))
+  )
+
+  let filesUpdated = 0
+  for (const f of legacy) {
+    const canonical = f.speaker === 'mikkel' ? 'human' : 'ai'
+    const oldPath = f.filePath
+    const newPath = oldPath
+      .replace(/mikkel\.wav$/, 'human.wav')
+      .replace(/freja\.wav$/, 'ai.wav')
+
+    try {
+      await renameIfNeeded(oldPath, newPath)
+    } catch (e) {
+      console.warn('Rename failed (continuing):', oldPath, '→', newPath, e)
+    }
+
+    await db.update(audioFiles)
+      .set({ speaker: canonical, filePath: newPath, updatedAt: now })
+      .where(eq(audioFiles.id, f.id))
+    filesUpdated++
+  }
+
+  const msgUpdated = await db.update(messages)
+    .set({ speaker: 'human' as any })
+    .where(eq(messages.speaker, 'mikkel'))
+
+  const msgUpdated2 = await db.update(messages)
+    .set({ speaker: 'ai' as any })
+    .where(eq(messages.speaker, 'freja'))
+
+  console.log('Audio files updated:', filesUpdated)
+  console.log('Messages updated (mikkel→human):', (msgUpdated as any).changes ?? '')
+  console.log('Messages updated (freja→ai):', (msgUpdated2 as any).changes ?? '')
+}
+
+run().then(() => {
+  // Ensure DB file is flushed
+  sqlite.close()
+  console.log('Legacy speaker migration completed.')
+}).catch(err => {
+  console.error('Migration failed', err)
+  process.exitCode = 1
+})

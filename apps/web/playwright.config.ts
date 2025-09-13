@@ -25,4 +25,10 @@ export default defineConfig({
       },
     },
   ],
+  webServer: {
+    command: 'next dev -p 4200',
+    url: 'http://localhost:4200',
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });

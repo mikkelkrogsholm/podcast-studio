@@ -53,14 +53,14 @@ describe('Step 06: Transcript Messages', () => {
       const sessionData = await sessionResponse.json()
       const sessionId = sessionData.sessionId
       
-      // Insert first message - Mikkel speaking
+      // Insert first message - Human speaking
       const message1Response = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          speaker: 'mikkel',
+          speaker: 'human',
           text: 'Hello, this is Mikkel speaking first',
           ts_ms: 1000,
           raw_json: { type: 'conversation.item.input_audio_transcription.completed', text: 'Hello, this is Mikkel speaking first' }
@@ -69,14 +69,14 @@ describe('Step 06: Transcript Messages', () => {
       
       expect(message1Response.status).toBe(200) // This will fail until route is implemented
       
-      // Insert second message - Freja responding
+      // Insert second message - AI responding
       const message2Response = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          speaker: 'freja',
+          speaker: 'ai',
           text: 'Hi Mikkel, this is Freja responding',
           ts_ms: 2000,
           raw_json: { type: 'response.audio_transcript.delta', text: 'Hi Mikkel, this is Freja responding' }
@@ -85,14 +85,14 @@ describe('Step 06: Transcript Messages', () => {
       
       expect(message2Response.status).toBe(200) // This will fail until route is implemented
       
-      // Insert third message - Mikkel again (out of order timestamp to test sorting)
+      // Insert third message - Human again (out of order timestamp to test sorting)
       const message3Response = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          speaker: 'mikkel',
+          speaker: 'human',
           text: 'Actually, let me clarify something',
           ts_ms: 1500,
           raw_json: { type: 'conversation.item.input_audio_transcription.completed', text: 'Actually, let me clarify something' }
@@ -112,15 +112,15 @@ describe('Step 06: Transcript Messages', () => {
       
       // Verify messages are sorted by ts_ms (ascending order)
       expect(messagesData.messages[0].ts_ms).toBe(1000)
-      expect(messagesData.messages[0].speaker).toBe('mikkel')
+      expect(messagesData.messages[0].speaker).toBe('human')
       expect(messagesData.messages[0].text).toBe('Hello, this is Mikkel speaking first')
       
       expect(messagesData.messages[1].ts_ms).toBe(1500)
-      expect(messagesData.messages[1].speaker).toBe('mikkel')
+      expect(messagesData.messages[1].speaker).toBe('human')
       expect(messagesData.messages[1].text).toBe('Actually, let me clarify something')
       
       expect(messagesData.messages[2].ts_ms).toBe(2000)
-      expect(messagesData.messages[2].speaker).toBe('freja')
+      expect(messagesData.messages[2].speaker).toBe('ai')
       expect(messagesData.messages[2].text).toBe('Hi Mikkel, this is Freja responding')
       
       // Verify raw_json is preserved

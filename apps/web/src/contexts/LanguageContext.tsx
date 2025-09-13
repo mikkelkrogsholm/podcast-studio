@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 type Language = 'da' | 'en';
 
@@ -40,10 +40,39 @@ interface Translations {
     danish: string;
     english: string;
   };
+  toolbar: {
+    settings: string;
+    connection: string;
+    record: string;
+    pause: string;
+    resume: string;
+    stop: string;
+    sessions: string;
+  };
+  ui: {
+    show: string;
+    hide: string;
+    notConfigured: string;
+    mute: string;
+    on: string;
+  };
+  tooltips: {
+    settings: string;
+    connection: string;
+    connectionConnected: string;
+    connectionDisconnected: string;
+    record: string;
+    pause: string;
+    resume: string;
+    stop: string;
+    sessions: string;
+    mute: string;
+    unmute: string;
+  };
   transcript: {
     title: string;
-    mikkel: string;
-    freja: string;
+    human: string;
+    ai: string;
     noMessages: string;
     willAppearHere: string;
     startSpeaking: string;
@@ -154,10 +183,39 @@ const translations: Record<Language, Translations> = {
       danish: 'Dansk',
       english: 'English',
     },
+    toolbar: {
+      settings: 'Indstillinger',
+      connection: 'Forbindelse',
+      record: 'Start',
+      pause: 'Pause',
+      resume: 'Fortsæt',
+      stop: 'Stop',
+      sessions: 'Sessioner',
+    },
+    ui: {
+      show: 'Vis',
+      hide: 'Skjul',
+      notConfigured: 'Indstillinger er ikke sat endnu.',
+      mute: 'Slå lyd fra',
+      on: 'Tænd',
+    },
+    tooltips: {
+      settings: 'Indstillinger',
+      connection: 'Forbindelse',
+      connectionConnected: 'Forbundet',
+      connectionDisconnected: 'Afbrudt',
+      record: 'Start optagelse',
+      pause: 'Pause',
+      resume: 'Fortsæt',
+      stop: 'Stop',
+      sessions: 'Sessioner',
+      mute: 'Slå lyd fra',
+      unmute: 'Slå lyd til',
+    },
     transcript: {
       title: 'Transkription',
-      mikkel: 'Mikkel',
-      freja: 'Freja',
+      human: 'Menneske',
+      ai: 'AI',
       noMessages: 'Ingen beskeder endnu',
       willAppearHere: 'Transkription vil blive vist her under optagelse...',
       startSpeaking: 'Begynd at tale for at se live transkription',
@@ -266,10 +324,39 @@ const translations: Record<Language, Translations> = {
       danish: 'Dansk',
       english: 'English',
     },
+    toolbar: {
+      settings: 'Settings',
+      connection: 'Connection',
+      record: 'Record',
+      pause: 'Pause',
+      resume: 'Resume',
+      stop: 'Stop',
+      sessions: 'Sessions',
+    },
+    ui: {
+      show: 'Show',
+      hide: 'Hide',
+      notConfigured: 'Settings are not configured yet.',
+      mute: 'Mute',
+      on: 'On',
+    },
+    tooltips: {
+      settings: 'Settings',
+      connection: 'Connection',
+      connectionConnected: 'Connected',
+      connectionDisconnected: 'Disconnected',
+      record: 'Start recording',
+      pause: 'Pause',
+      resume: 'Resume',
+      stop: 'Stop',
+      sessions: 'Sessions',
+      mute: 'Mute',
+      unmute: 'Unmute',
+    },
     transcript: {
       title: 'Transcript',
-      mikkel: 'Mikkel',
-      freja: 'Freja',
+      human: 'Human',
+      ai: 'AI',
       noMessages: 'No messages yet',
       willAppearHere: 'Transcript will appear here during recording...',
       startSpeaking: 'Start speaking to see live transcription',
@@ -354,6 +441,21 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('da'); // Default to Danish
+
+  // Load saved language and sync <html lang>
+  React.useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('ui-language') : null;
+    if (saved === 'da' || saved === 'en') setLanguage(saved);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ui-language', language);
+    }
+  }, [language]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>

@@ -252,16 +252,17 @@ describe('Step 5: Auto-save & Crash Recovery', () => {
       expect(detailData).toHaveProperty('id', sessionId)
       expect(detailData).toHaveProperty('status', 'active')
       expect(detailData).toHaveProperty('audioFiles')
-      expect(detailData.audioFiles).toHaveLength(2) // mikkel and freja tracks
+      expect(detailData.audioFiles).toHaveLength(2) // human and ai tracks
       
       // Check that both audio files are present
-      const mikkelFile = detailData.audioFiles.find((f: any) => f.speaker === 'mikkel')
-      const frejaFile = detailData.audioFiles.find((f: any) => f.speaker === 'freja')
+      const mikkelFile = detailData.audioFiles.find((f: any) => f.speaker === 'human')
+      const frejaFile = detailData.audioFiles.find((f: any) => f.speaker === 'ai')
       
       expect(mikkelFile).toBeDefined() // This will fail until implemented
       expect(frejaFile).toBeDefined() // This will fail until implemented
-      expect(mikkelFile.filePath).toContain('mikkel.wav') // This will fail until implemented
-      expect(frejaFile.filePath).toContain('freja.wav') // This will fail until implemented
+      // Accept canonical file names
+      expect(String(mikkelFile.filePath)).toContain('human.wav')
+      expect(String(frejaFile.filePath)).toContain('ai.wav')
     })
   })
 })
