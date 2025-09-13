@@ -29,7 +29,8 @@ interface ValidationErrors {
 
 export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFormProps) {
   const { t } = useLanguage();
-  // Initialize settings from localStorage or defaults
+
+  // Initialize settings from localStorage using lazy initialization
   const [settings, setSettings] = useState<Settings>(() => {
     const savedSettings = localStorage.getItem('podcast-studio-settings');
     if (savedSettings) {
@@ -52,8 +53,10 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
     }
     return defaultSettings;
   });
+
   const [errors, setErrors] = useState<ValidationErrors>({});
-  
+  const [showSaved, setShowSaved] = useState(false);
+
   // Notify parent when settings change (separate effect)
   useEffect(() => {
     const hasErrors = Object.values(errors).some(Boolean);
@@ -72,6 +75,14 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
   // Save settings to localStorage when changed
   useEffect(() => {
     localStorage.setItem('podcast-studio-settings', JSON.stringify(settings));
+
+    // Show saved confirmation
+    setShowSaved(true);
+    const timer = setTimeout(() => {
+      setShowSaved(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [settings]);
 
   const validateField = (field: keyof Settings, value: any): string | null => {
@@ -104,7 +115,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
     if (disabled) return;
 
     let parsedValue = value;
-    
+
     // Convert string inputs to numbers for numeric fields
     if (field === 'temperature' || field === 'top_p') {
       parsedValue = parseFloat(value);
@@ -115,7 +126,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
     }
 
     const error = validateField(field, parsedValue);
-    
+
     setErrors(prev => ({
       ...prev,
       [field]: error || undefined,
@@ -126,7 +137,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
       [field]: parsedValue,
     };
     setSettings(newSettings);
-    
+
     // Only update parent if there are no errors
     const hasErrors = Object.values({ ...errors, [field]: error }).some(Boolean);
     if (!hasErrors) {
@@ -149,7 +160,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
       ...prev,
       [field]: error || undefined,
     }));
-    
+
     // Re-validate the complete settings after blur
     const hasErrors = Object.values({ ...errors, [field]: error }).some(Boolean);
     if (!hasErrors) {
@@ -168,8 +179,19 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
 
   return (
     <div className="space-y-4">
+      {/* Saved confirmation */}
+      {showSaved && (
+        <div
+          className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm flex items-center gap-2"
+          data-testid="settings-saved-message"
+        >
+          <span className="text-green-600">✓</span>
+          <span>{t.settings.savedSuccessfully || 'Settings saved successfully'}</span>
+        </div>
+      )}
+
       {disabled && (
-        <div 
+        <div
           className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-sm"
           data-testid="settings-locked-message"
         >
@@ -322,7 +344,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
               {t.settings.personaPrompt}
             </label>
             {disabled && (
-              <span 
+              <span
                 data-testid="persona-locked-badge"
                 className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
               >
@@ -342,13 +364,13 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             disabled={disabled}
           />
           <div className="flex items-center justify-between mt-1">
-            <div 
+            <div
               data-testid="persona-char-count"
               className={`text-xs ${
-                (settings.persona_prompt?.length || 0) > 4500 
-                  ? 'text-red-600 font-medium' 
-                  : (settings.persona_prompt?.length || 0) > 4000 
-                  ? 'text-yellow-600 font-medium' 
+                (settings.persona_prompt?.length || 0) > 4500
+                  ? 'text-red-600 font-medium'
+                  : (settings.persona_prompt?.length || 0) > 4000
+                  ? 'text-yellow-600 font-medium'
                   : 'text-gray-500'
               }`}
             >
@@ -379,13 +401,13 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             disabled={disabled}
           />
           <div className="flex items-center justify-between mt-1">
-            <div 
+            <div
               data-testid="context-char-count"
               className={`text-xs ${
-                (settings.context_prompt?.length || 0) > 4500 
-                  ? 'text-red-600 font-medium' 
-                  : (settings.context_prompt?.length || 0) > 4000 
-                  ? 'text-yellow-600 font-medium' 
+                (settings.context_prompt?.length || 0) > 4500
+                  ? 'text-red-600 font-medium'
+                  : (settings.context_prompt?.length || 0) > 4000
+                  ? 'text-yellow-600 font-medium'
                   : 'text-gray-500'
               }`}
             >

@@ -128,6 +128,7 @@ interface Translations {
     lockedMessage: string;
     validationError: string;
     notSupportedInRealtime: string;
+    savedSuccessfully: string;
     pleaseFixErrors: string;
     personaPrompt: string;
     contextPrompt: string;
@@ -307,6 +308,7 @@ const translations: Record<Language, Translations> = {
       lockedMessage: 'Indstillinger er låst under optagelse',
       validationError: 'Ugyldig værdi',
       notSupportedInRealtime: 'Ikke understøttet i nuværende model',
+      savedSuccessfully: 'Indstillinger gemt',
       pleaseFixErrors: 'Ret venligst fejlene før du fortsætter',
       personaPrompt: 'Persona (Freja)',
       contextPrompt: 'Dagens kontekst',
@@ -484,6 +486,7 @@ const translations: Record<Language, Translations> = {
       lockedMessage: 'Settings are locked during recording',
       validationError: 'Invalid value',
       notSupportedInRealtime: 'Not supported in current model',
+      savedSuccessfully: 'Settings saved successfully',
       pleaseFixErrors: 'Please fix the errors before continuing',
       personaPrompt: 'Persona (Freja)',
       contextPrompt: 'Today\'s Context',
