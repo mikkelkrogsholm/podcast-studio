@@ -373,8 +373,9 @@ app.post('/api/session/:id/keepalive', async (req, res) => {
       return res.status(400).json({ error: 'Invalid session ID format' })
     }
 
-    // Validate body
-    const bodyResult = keepaliveSchema.safeParse(req.body)
+    // Validate body (allow empty body)
+    const body = req.body || {}
+    const bodyResult = keepaliveSchema.safeParse(body)
     if (!bodyResult.success) {
       return res.status(400).json({ error: 'Invalid request body', details: bodyResult.error.errors })
     }
