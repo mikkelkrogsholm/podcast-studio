@@ -16,6 +16,21 @@ const CreateMessageRequestSchema = z.object({
   raw_json: z.record(z.any()),
 })
 
+// Settings schema for Step 07 with defaults
+const SettingsSchema = z.object({
+  model: z.literal('gpt-4o-realtime-preview').default('gpt-4o-realtime-preview'),
+  voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']).default('alloy'),
+  temperature: z.number().min(0.0).max(1.0).default(0.8),
+  top_p: z.number().min(0.0).max(1.0).default(1.0),
+  language: z.enum(['da-DK', 'en-US']).default('da-DK'),
+  silence_ms: z.number().positive().default(900),
+})
+
+const CreateSessionRequestSchema = z.object({
+  title: z.string(),
+  settings: SettingsSchema.optional(),
+})
+
 // MessageResponseSchema not needed - using direct response objects
 
 // GetMessagesResponseSchema not needed - using inline validation
@@ -91,13 +106,29 @@ app.post('/api/realtime/token', async (_req, res) => {
 // Create a new session
 app.post('/api/session', async (req, res) => {
   try {
+    // Validate request body
+    const bodyResult = CreateSessionRequestSchema.safeParse(req.body)
+    if (!bodyResult.success) {
+      // Extract field names from validation errors for better error messages
+      const fieldNames = bodyResult.error.errors.map(err => err.path.join('.')).join(', ')
+      return res.status(400).json({ 
+        error: `Invalid request body: ${fieldNames}`, 
+        details: bodyResult.error.errors 
+      })
+    }
+
+    const { title, settings } = bodyResult.data
     const sessionId = randomUUID()
     const now = Date.now()
+
+    // Apply default settings if none provided, or merge with provided settings
+    const finalSettings = settings ? settings : SettingsSchema.parse({})
 
     // Create session in database
     await db.insert(sessions).values({
       id: sessionId,
-      title: req.body.title || 'New Recording Session',
+      title: title || 'New Recording Session',
+      settings: JSON.stringify(finalSettings),
       status: 'active',
       lastHeartbeat: now, // Initialize heartbeat to creation time
       createdAt: now,
@@ -342,8 +373,9 @@ app.post('/api/session/:id/keepalive', async (req, res) => {
       return res.status(400).json({ error: 'Invalid session ID format' })
     }
 
-    // Validate body
-    const bodyResult = keepaliveSchema.safeParse(req.body)
+    // Validate body (allow empty body)
+    const body = req.body || {}
+    const bodyResult = keepaliveSchema.safeParse(body)
     if (!bodyResult.success) {
       return res.status(400).json({ error: 'Invalid request body', details: bodyResult.error.errors })
     }
@@ -557,10 +589,21 @@ app.get('/api/session/:id', async (req, res) => {
       updatedAt: audioFile.updatedAt
     }))
 
+    // Parse settings if they exist
+    let parsedSettings = null
+    if (session.settings) {
+      try {
+        parsedSettings = JSON.parse(session.settings)
+      } catch (error) {
+        console.error('Failed to parse settings JSON:', error)
+      }
+    }
+
     return res.json({
       id: session.id,
       title: session.title,
       status: session.status,
+      settings: parsedSettings,
       lastHeartbeat: session.lastHeartbeat,
       completedAt: session.completedAt,
       createdAt: session.createdAt,

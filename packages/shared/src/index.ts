@@ -53,3 +53,23 @@ export const GetMessagesResponseSchema = z.object({
 export type CreateMessageRequest = z.infer<typeof CreateMessageRequestSchema>;
 export type MessageResponse = z.infer<typeof MessageResponseSchema>;
 export type GetMessagesResponse = z.infer<typeof GetMessagesResponseSchema>;
+
+// Settings schemas for Step 07: Playground Controls
+export const SettingsSchema = z.object({
+  model: z.literal('gpt-4o-realtime-preview'),
+  voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']),
+  temperature: z.number().min(0.0).max(1.0),
+  top_p: z.number().min(0.0).max(1.0),
+  language: z.enum(['da-DK', 'en-US']),
+  silence_ms: z.number().positive(),
+});
+
+export type Settings = z.infer<typeof SettingsSchema>;
+
+// Updated session request schema to include settings
+export const CreateSessionWithSettingsRequestSchema = z.object({
+  title: z.string(),
+  settings: SettingsSchema.optional(),
+});
+
+export type CreateSessionWithSettingsRequest = z.infer<typeof CreateSessionWithSettingsRequestSchema>;

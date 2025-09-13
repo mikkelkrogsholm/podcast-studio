@@ -86,6 +86,18 @@ interface Translations {
     failedToResumeSession: string;
     stopCurrentRecording: string;
   };
+  settings: {
+    title: string;
+    model: string;
+    voice: string;
+    temperature: string;
+    topP: string;
+    language: string;
+    silenceThreshold: string;
+    lockedMessage: string;
+    validationError: string;
+    pleaseFixErrors: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -171,6 +183,18 @@ const translations: Record<Language, Translations> = {
       failedToResumeSession: 'Kunne ikke genoptage session',
       stopCurrentRecording: 'Stop venligst den nuværende optagelse først',
     },
+    settings: {
+      title: 'Indstillinger',
+      model: 'Model',
+      voice: 'Stemme',
+      temperature: 'Temperatur',
+      topP: 'Top P',
+      language: 'Sprog',
+      silenceThreshold: 'Stilhedstærskel',
+      lockedMessage: 'Indstillinger er låst under optagelse',
+      validationError: 'Ugyldig værdi',
+      pleaseFixErrors: 'Ret venligst fejlene før du fortsætter',
+    },
   },
   en: {
     title: 'Podcast Studio',
@@ -253,6 +277,18 @@ const translations: Record<Language, Translations> = {
       failedToLoadSession: 'Failed to load session details',
       failedToResumeSession: 'Failed to resume session',
       stopCurrentRecording: 'Please stop the current recording first',
+    },
+    settings: {
+      title: 'Settings',
+      model: 'Model',
+      voice: 'Voice',
+      temperature: 'Temperature',
+      topP: 'Top P',
+      language: 'Language',
+      silenceThreshold: 'Silence Threshold',
+      lockedMessage: 'Settings are locked during recording',
+      validationError: 'Invalid value',
+      pleaseFixErrors: 'Please fix the errors before continuing',
     },
   },
 };

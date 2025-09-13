@@ -6,8 +6,11 @@ import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { DualTrackControls } from '../components/DualTrackControls';
 import { SessionHistory } from '../components/SessionHistory';
 import { Transcript } from '../components/Transcript';
+import { SettingsForm } from '../components/SettingsForm';
+import { CurrentSettings } from '../components/CurrentSettings';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Settings } from '@podcast-studio/shared';
 
 export default function HomePage() {
   const { status, events, transcriptMessages, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
@@ -27,6 +30,7 @@ export default function HomePage() {
   
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [showRecoveryNotification, setShowRecoveryNotification] = useState(false);
+  const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
   const { language, setLanguage, t } = useLanguage();
 
   // Check for incomplete sessions on load
@@ -47,15 +51,22 @@ export default function HomePage() {
       return;
     }
 
+    // Ensure we have valid settings
+    if (!currentSettings) {
+      alert('Please wait for settings to load');
+      return;
+    }
+
     try {
-      // Create a new session
+      // Create a new session with settings
       const response = await fetch('http://localhost:4201/api/session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: `Recording ${new Date().toLocaleString()}`
+          title: `Recording ${new Date().toLocaleString()}`,
+          settings: currentSettings
         })
       });
 
@@ -206,21 +217,36 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Settings Form */}
+      <SettingsForm 
+        onSettingsChange={setCurrentSettings} 
+        disabled={isRecording}
+      />
       
       {/* Recording Section */}
       <div className="mb-8 p-6 border rounded-lg bg-gray-50">
         <h2 className="text-xl font-semibold mb-4">{t.audioRecording.title}</h2>
         
+        {/* Current Settings Display During Recording */}
+        {isRecording && currentSettings && (
+          <div data-testid="recording-interface">
+            <CurrentSettings settings={currentSettings} />
+          </div>
+        )}
+
         <div className="flex items-center space-x-4 mb-4">
           <button 
             onClick={handleStartRecording}
-            disabled={isRecording || recordingStatus === 'requesting-permission'}
+            disabled={isRecording || recordingStatus === 'requesting-permission' || !currentSettings}
             className={`
               px-6 py-3 rounded-lg font-medium transition-colors
               ${isRecording 
                 ? 'bg-gray-400 text-white cursor-not-allowed' 
                 : recordingStatus === 'requesting-permission'
                 ? 'bg-yellow-500 text-white cursor-not-allowed'
+                : !currentSettings
+                ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-red-500 hover:bg-red-600 text-white'
               }
             `}

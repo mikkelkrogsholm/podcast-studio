@@ -135,6 +135,7 @@ Additional documentation is available in the `docs/` folder:
 - **[step-04-dual-track-recording.md](docs/step-04-dual-track-recording.md)** - Dual-track voice recording with OpenAI Realtime API
 - **[step-05-auto-save-recovery.md](docs/step-05-auto-save-recovery.md)** - Auto-save functionality and crash recovery mechanisms
 - **[step-06-transcript-persistence.md](docs/step-06-transcript-persistence.md)** - Live transcript display and database persistence
+- **[step-07-playground-controls.md](docs/step-07-playground-controls.md)** - Playground-style controls for model, voice, and temperature settings
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step

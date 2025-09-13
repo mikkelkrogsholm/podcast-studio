@@ -4,6 +4,7 @@ export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   title: text('title'),
   status: text('status').default('pending'), // 'pending', 'active', 'incomplete', 'completed'
+  settings: text('settings'), // JSON string of settings for Step 07
   lastHeartbeat: integer('last_heartbeat'), // timestamp of last keepalive
   completedAt: integer('completed_at'), // timestamp when session was finished
   createdAt: integer('created_at').notNull(),

@@ -36,7 +36,9 @@ const migrations = [
     raw_json TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions (id)
-  )`
+  )`,
+  // Step 7: Add settings column for playground controls
+  `ALTER TABLE sessions ADD COLUMN settings TEXT`
 ]
 
 export async function runMigrations(): Promise<void> {
