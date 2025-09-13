@@ -2,8 +2,10 @@
 
 import { useRealtimeConnection } from '../hooks/useRealtimeConnection';
 import { useDualTrackRecording } from '../hooks/useDualTrackRecording';
+import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { DualTrackControls } from '../components/DualTrackControls';
-import { useState } from 'react';
+import { SessionHistory } from '../components/SessionHistory';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
@@ -20,8 +22,18 @@ export default function HomePage() {
     setMute
   } = useDualTrackRecording();
   
+  const { hasIncompleteSessions, getSessionDetails } = useSessionRecovery();
+  
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [showRecoveryNotification, setShowRecoveryNotification] = useState(false);
   const { language, setLanguage, t } = useLanguage();
+
+  // Check for incomplete sessions on load
+  useEffect(() => {
+    if (hasIncompleteSessions && !isRecording) {
+      setShowRecoveryNotification(true);
+    }
+  }, [hasIncompleteSessions, isRecording]);
 
   const handleStartRecording = async () => {
     if (isRecording) {
@@ -61,6 +73,37 @@ export default function HomePage() {
   const handleStopRecording = async () => {
     await stopRecording();
     setCurrentSessionId(null);
+  };
+
+  const handleResumeSession = async (sessionId: string) => {
+    if (isRecording) {
+      alert('Please stop the current recording before resuming another session');
+      return;
+    }
+
+    // Connect to OpenAI first if not connected
+    if (status !== 'connected') {
+      alert('Please connect to OpenAI first before resuming recording');
+      return;
+    }
+
+    try {
+      // Get session details to verify it exists and get audio info
+      const sessionDetails = await getSessionDetails(sessionId);
+      if (!sessionDetails) {
+        alert('Failed to load session details');
+        return;
+      }
+
+      setCurrentSessionId(sessionId);
+      setShowRecoveryNotification(false);
+      
+      // Start recording with the existing session ID
+      await startRecording(sessionId, remoteAudioStream);
+    } catch (error) {
+      console.error('Failed to resume session:', error);
+      alert('Failed to resume session');
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -142,6 +185,26 @@ export default function HomePage() {
           </button>
         </div>
       </div>
+
+      {/* Recovery Notification */}
+      {showRecoveryNotification && hasIncompleteSessions && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-yellow-800">⚠️ Incomplete Sessions Found</h3>
+              <p className="text-sm text-yellow-700">
+                Some recording sessions were interrupted and may contain recoverable audio data.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowRecoveryNotification(false)}
+              className="text-yellow-600 hover:text-yellow-800"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Recording Section */}
       <div className="mb-8 p-6 border rounded-lg bg-gray-50">
@@ -269,7 +332,7 @@ export default function HomePage() {
       </div>
 
       {events.length > 0 && (
-        <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="mb-8 bg-gray-50 p-4 rounded-lg">
           <h2 className="text-lg font-semibold mb-3">{t.openaiConnection.connectionEvents}</h2>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {events.map((event, index) => (
@@ -301,6 +364,12 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Session History */}
+      <SessionHistory 
+        onResumeSession={handleResumeSession}
+        currentSessionId={currentSessionId || undefined}
+      />
     </div>
   );
 }

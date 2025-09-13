@@ -5,8 +5,9 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles } from './db/schema.js'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, lt } from 'drizzle-orm'
 import dotenv from 'dotenv'
+import { z } from 'zod'
 
 // Load environment variables from .env file in project root
 dotenv.config({ path: path.join(process.cwd(), '../../.env') })
@@ -19,6 +20,22 @@ app.use(express.json())
 
 // Get OpenAI API key from environment
 const OPENAI_API_KEY = process.env['OPENAI_API_KEY']
+
+// Zod validation schemas
+const keepaliveSchema = z.object({
+  timestamp: z.number().optional()
+})
+
+const checkTimeoutsSchema = z.object({
+  timeoutMs: z.number().min(1000).max(300000).optional().default(30000) // Default 30 seconds
+})
+
+const sessionParamsSchema = z.object({
+  id: z.string().min(1) // Accept any non-empty string, let database handle validation
+})
+
+// Constants
+const DEFAULT_TIMEOUT_MS = 30000 // 30 seconds
 
 // Health endpoint
 app.get('/health', (_req, res) => {
@@ -71,6 +88,7 @@ app.post('/api/session', async (req, res) => {
       id: sessionId,
       title: req.body.title || 'New Recording Session',
       status: 'active',
+      lastHeartbeat: now, // Initialize heartbeat to creation time
       createdAt: now,
       updatedAt: now,
     })
@@ -303,6 +321,247 @@ function createWavHeader(dataLength: number): Buffer {
 
   return header
 }
+
+// POST /api/session/:id/keepalive - Update session's last_heartbeat timestamp
+app.post('/api/session/:id/keepalive', async (req, res) => {
+  try {
+    // Validate params
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Validate body
+    const bodyResult = keepaliveSchema.safeParse(req.body)
+    if (!bodyResult.success) {
+      return res.status(400).json({ error: 'Invalid request body', details: bodyResult.error.errors })
+    }
+
+    const { id } = paramsResult.data
+    const { timestamp } = bodyResult.data
+
+    // Use provided timestamp or current time
+    const heartbeatTime = timestamp || Date.now()
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Only allow heartbeats for active sessions
+    if (session.status !== 'active') {
+      return res.status(400).json({ error: `Session is not active (status: ${session.status})` })
+    }
+
+    // Update last heartbeat
+    await db.update(sessions)
+      .set({ 
+        lastHeartbeat: heartbeatTime,
+        updatedAt: Date.now()
+      })
+      .where(eq(sessions.id, id))
+
+    return res.json({ 
+      status: 'success',
+      sessionId: id,
+      lastHeartbeat: heartbeatTime
+    })
+
+  } catch (error) {
+    console.error('Failed to update keepalive:', error)
+    return res.status(500).json({ error: 'Failed to update keepalive' })
+  }
+})
+
+// POST /api/session/check-timeouts - Mark sessions as 'incomplete' if no heartbeat for timeout period
+app.post('/api/session/check-timeouts', async (req, res) => {
+  try {
+    // Validate body
+    const bodyResult = checkTimeoutsSchema.safeParse(req.body)
+    if (!bodyResult.success) {
+      return res.status(400).json({ error: 'Invalid request body', details: bodyResult.error.errors })
+    }
+
+    const { timeoutMs } = bodyResult.data
+    const cutoffTime = Date.now() - timeoutMs
+
+    // Find active sessions that haven't sent heartbeat within timeout period
+    // This includes sessions where lastHeartbeat is null (old sessions) or < cutoffTime
+    const timedOutSessions = await db.select()
+      .from(sessions)
+      .where(eq(sessions.status, 'active'))
+
+    // Filter out sessions that are within the timeout window
+    const actuallyTimedOut = timedOutSessions.filter(session => {
+      if (!session.lastHeartbeat) {
+        // If no lastHeartbeat, use createdAt as fallback
+        return session.createdAt < cutoffTime
+      }
+      return session.lastHeartbeat < cutoffTime
+    })
+
+    // Mark them as incomplete
+    if (actuallyTimedOut.length > 0) {
+      for (const session of actuallyTimedOut) {
+        await db.update(sessions)
+          .set({ 
+            status: 'incomplete',
+            updatedAt: Date.now()
+          })
+          .where(eq(sessions.id, session.id))
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      checkedAt: Date.now(),
+      timeoutMs,
+      timedOutSessions: actuallyTimedOut.length,
+      sessionIds: actuallyTimedOut.map(s => s.id)
+    })
+
+  } catch (error) {
+    console.error('Failed to check timeouts:', error)
+    return res.status(500).json({ error: 'Failed to check timeouts' })
+  }
+})
+
+// POST /api/session/:id/finish - Mark session as 'completed'
+app.post('/api/session/:id/finish', async (req, res) => {
+  try {
+    // Validate params
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Only allow finishing active or incomplete sessions
+    if (session.status !== 'active' && session.status !== 'incomplete') {
+      return res.status(400).json({ error: `Cannot finish session with status: ${session.status}` })
+    }
+
+    const now = Date.now()
+
+    // Mark session as completed
+    await db.update(sessions)
+      .set({ 
+        status: 'completed',
+        completedAt: now,
+        updatedAt: now
+      })
+      .where(eq(sessions.id, id))
+
+    return res.json({
+      status: 'success',
+      sessionId: id,
+      completedAt: now
+    })
+
+  } catch (error) {
+    console.error('Failed to finish session:', error)
+    return res.status(500).json({ error: 'Failed to finish session' })
+  }
+})
+
+// GET /api/sessions - List all sessions with their status
+app.get('/api/sessions', async (_req, res) => {
+  try {
+    const allSessions = await db.select().from(sessions)
+
+    const sessionsWithInfo = allSessions.map(session => ({
+      id: session.id,
+      title: session.title,
+      status: session.status,
+      lastHeartbeat: session.lastHeartbeat,
+      completedAt: session.completedAt,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt
+    }))
+
+    return res.json({
+      sessions: sessionsWithInfo,
+      total: sessionsWithInfo.length
+    })
+
+  } catch (error) {
+    console.error('Failed to list sessions:', error)
+    return res.status(500).json({ error: 'Failed to list sessions' })
+  }
+})
+
+// GET /api/session/:id - Get session details including audio files
+app.get('/api/session/:id', async (req, res) => {
+  try {
+    // Validate params
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id } = paramsResult.data
+
+    // Get session
+    const sessionResult = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (sessionResult.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = sessionResult[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get audio files for this session
+    const audioFileResults = await db.select()
+      .from(audioFiles)
+      .where(eq(audioFiles.sessionId, id))
+
+    const audioFilesInfo = audioFileResults.map(audioFile => ({
+      id: audioFile.id,
+      speaker: audioFile.speaker,
+      filePath: audioFile.filePath,
+      size: audioFile.size || 0,
+      duration: audioFile.duration,
+      format: audioFile.format,
+      createdAt: audioFile.createdAt,
+      updatedAt: audioFile.updatedAt
+    }))
+
+    return res.json({
+      id: session.id,
+      title: session.title,
+      status: session.status,
+      lastHeartbeat: session.lastHeartbeat,
+      completedAt: session.completedAt,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      audioFiles: audioFilesInfo
+    })
+
+  } catch (error) {
+    console.error('Failed to get session details:', error)
+    return res.status(500).json({ error: 'Failed to get session details' })
+  }
+})
 
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {

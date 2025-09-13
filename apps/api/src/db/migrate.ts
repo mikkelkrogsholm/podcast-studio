@@ -22,7 +22,10 @@ const migrations = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions (id)
-  )`
+  )`,
+  // Step 5: Add auto-save and crash recovery fields
+  `ALTER TABLE sessions ADD COLUMN last_heartbeat INTEGER`,
+  `ALTER TABLE sessions ADD COLUMN completed_at INTEGER`
 ]
 
 export async function runMigrations(): Promise<void> {
