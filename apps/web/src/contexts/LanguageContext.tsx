@@ -16,6 +16,12 @@ interface Translations {
     idle: string;
     error: string;
     sessionId: string;
+    testMode: string;
+    duration: string;
+    failedToCreate: string;
+    failedToStart: string;
+    failedToStop: string;
+    failedToUpload: string;
   };
   openaiConnection: {
     title: string;
@@ -26,10 +32,59 @@ interface Translations {
     disconnected: string;
     status: string;
     connectionEvents: string;
+    failed: string;
+    initializing: string;
+    pleaseConnectFirst: string;
   };
   language: {
     danish: string;
     english: string;
+  };
+  transcript: {
+    title: string;
+    mikkel: string;
+    freja: string;
+    noMessages: string;
+    willAppearHere: string;
+    startSpeaking: string;
+  };
+  sessionRecovery: {
+    title: string;
+    previousSessions: string;
+    resume: string;
+    continueRecording: string;
+    noIncompleteSessions: string;
+    incompleteSessions: string;
+    recoveryMessage: string;
+    failedToLoad: string;
+    failedToResume: string;
+    stopCurrentFirst: string;
+    sessionHistory: string;
+    loadingSessions: string;
+    errorLoadingSessions: string;
+    retry: string;
+    refresh: string;
+    markComplete: string;
+    noSessionsFound: string;
+    current: string;
+    created: string;
+    completed: string;
+    lastActivity: string;
+    audioFiles: string;
+    resumeRecording: string;
+    markAsComplete: string;
+    failedToLoadDetails: string;
+    showingLatest: string;
+    statusActive: string;
+    statusIncomplete: string;
+    statusCompleted: string;
+  };
+  alerts: {
+    pleaseConnectFirst: string;
+    failedToCreateSession: string;
+    failedToLoadSession: string;
+    failedToResumeSession: string;
+    stopCurrentRecording: string;
   };
 }
 
@@ -46,6 +101,12 @@ const translations: Record<Language, Translations> = {
       idle: 'Klar',
       error: 'Fejl',
       sessionId: 'Sessions ID',
+      testMode: 'Testindstilling',
+      duration: 'Varighed',
+      failedToCreate: 'Kunne ikke oprette session',
+      failedToStart: 'Kunne ikke starte optagelse',
+      failedToStop: 'Kunne ikke stoppe optagelse',
+      failedToUpload: 'Kunne ikke uploade lydfil',
     },
     openaiConnection: {
       title: 'OpenAI Forbindelse',
@@ -56,10 +117,59 @@ const translations: Record<Language, Translations> = {
       disconnected: 'Afbrudt',
       status: 'Status',
       connectionEvents: 'Forbindelseshændelser',
+      failed: 'Fejlet',
+      initializing: 'Initialiserer...',
+      pleaseConnectFirst: 'Forbind venligst til OpenAI først',
     },
     language: {
       danish: 'Dansk',
       english: 'English',
+    },
+    transcript: {
+      title: 'Transkription',
+      mikkel: 'Mikkel',
+      freja: 'Freja',
+      noMessages: 'Ingen beskeder endnu',
+      willAppearHere: 'Transkription vil blive vist her under optagelse...',
+      startSpeaking: 'Begynd at tale for at se live transkription',
+    },
+    sessionRecovery: {
+      title: 'Sessionsgendannelse',
+      previousSessions: 'Tidligere sessioner',
+      resume: 'Genoptag',
+      continueRecording: 'Fortsæt optagelse',
+      noIncompleteSessions: 'Ingen ufuldstændige sessioner',
+      incompleteSessions: 'Ufuldstændige sessioner fundet',
+      recoveryMessage: 'Nogle optagelser blev afbrudt og kan indeholde gendannelig lyddata.',
+      failedToLoad: 'Kunne ikke indlæse session',
+      failedToResume: 'Kunne ikke genoptage session',
+      stopCurrentFirst: 'Stop venligst den nuværende optagelse først',
+      sessionHistory: 'Sessionshistorik',
+      loadingSessions: 'Indlæser sessioner...',
+      errorLoadingSessions: 'Fejl ved indlæsning af sessioner',
+      retry: 'Prøv igen',
+      refresh: 'Opdater',
+      markComplete: 'Marker afsluttet',
+      noSessionsFound: 'Ingen sessioner fundet.',
+      current: 'Nuværende',
+      created: 'Oprettet',
+      completed: 'Afsluttet',
+      lastActivity: 'Sidste aktivitet',
+      audioFiles: 'Lydfiler',
+      resumeRecording: 'Genoptag optagelse',
+      markAsComplete: 'Marker som afsluttet',
+      failedToLoadDetails: 'Kunne ikke indlæse sessionsdetaljer.',
+      showingLatest: 'Viser de seneste 10 sessioner af {total} i alt',
+      statusActive: 'Aktiv',
+      statusIncomplete: 'Ufuldstændig',
+      statusCompleted: 'Afsluttet',
+    },
+    alerts: {
+      pleaseConnectFirst: 'Forbind venligst til OpenAI først',
+      failedToCreateSession: 'Kunne ikke oprette session',
+      failedToLoadSession: 'Kunne ikke indlæse sessionsdetaljer',
+      failedToResumeSession: 'Kunne ikke genoptage session',
+      stopCurrentRecording: 'Stop venligst den nuværende optagelse først',
     },
   },
   en: {
@@ -74,6 +184,12 @@ const translations: Record<Language, Translations> = {
       idle: 'Idle',
       error: 'Error',
       sessionId: 'Session ID',
+      testMode: 'Test Mode',
+      duration: 'Duration',
+      failedToCreate: 'Failed to create session',
+      failedToStart: 'Failed to start recording',
+      failedToStop: 'Failed to stop recording',
+      failedToUpload: 'Failed to upload audio file',
     },
     openaiConnection: {
       title: 'OpenAI Connection',
@@ -84,10 +200,59 @@ const translations: Record<Language, Translations> = {
       disconnected: 'Disconnected',
       status: 'Status',
       connectionEvents: 'Connection Events',
+      failed: 'Failed',
+      initializing: 'Initializing...',
+      pleaseConnectFirst: 'Please connect to OpenAI first',
     },
     language: {
       danish: 'Dansk',
       english: 'English',
+    },
+    transcript: {
+      title: 'Transcript',
+      mikkel: 'Mikkel',
+      freja: 'Freja',
+      noMessages: 'No messages yet',
+      willAppearHere: 'Transcript will appear here during recording...',
+      startSpeaking: 'Start speaking to see live transcription',
+    },
+    sessionRecovery: {
+      title: 'Session Recovery',
+      previousSessions: 'Previous Sessions',
+      resume: 'Resume',
+      continueRecording: 'Continue Recording',
+      noIncompleteSessions: 'No incomplete sessions',
+      incompleteSessions: 'Incomplete Sessions Found',
+      recoveryMessage: 'Some recording sessions were interrupted and may contain recoverable audio data.',
+      failedToLoad: 'Failed to load session',
+      failedToResume: 'Failed to resume session',
+      stopCurrentFirst: 'Please stop the current recording first',
+      sessionHistory: 'Session History',
+      loadingSessions: 'Loading sessions...',
+      errorLoadingSessions: 'Error loading sessions',
+      retry: 'Retry',
+      refresh: 'Refresh',
+      markComplete: 'Mark Complete',
+      noSessionsFound: 'No sessions found.',
+      current: 'Current',
+      created: 'Created',
+      completed: 'Completed',
+      lastActivity: 'Last activity',
+      audioFiles: 'Audio Files',
+      resumeRecording: 'Resume Recording',
+      markAsComplete: 'Mark as Complete',
+      failedToLoadDetails: 'Failed to load session details.',
+      showingLatest: 'Showing latest 10 sessions of {total} total',
+      statusActive: 'Active',
+      statusIncomplete: 'Incomplete',
+      statusCompleted: 'Completed',
+    },
+    alerts: {
+      pleaseConnectFirst: 'Please connect to OpenAI first',
+      failedToCreateSession: 'Failed to create session',
+      failedToLoadSession: 'Failed to load session details',
+      failedToResumeSession: 'Failed to resume session',
+      stopCurrentRecording: 'Please stop the current recording first',
     },
   },
 };

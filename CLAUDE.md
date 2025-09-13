@@ -134,9 +134,11 @@ Additional documentation is available in the `docs/` folder:
 - **[step-03-implementation.md](docs/step-03-implementation.md)** - Technical details for Step 3 audio recording implementation
 - **[step-04-dual-track-recording.md](docs/step-04-dual-track-recording.md)** - Dual-track voice recording with OpenAI Realtime API
 - **[step-05-auto-save-recovery.md](docs/step-05-auto-save-recovery.md)** - Auto-save functionality and crash recovery mechanisms
+- **[step-06-transcript-persistence.md](docs/step-06-transcript-persistence.md)** - Live transcript display and database persistence
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
 - **Persona/context locked per session**: Cannot be changed mid-recording
 - **Auto-save everything**: Every chunk and event persisted immediately
 - **Raw data first**: Store unprocessed audio and transcripts
+- Always make sure the UI is danish and english

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface TranscriptMessage {
   id?: string;
@@ -15,6 +16,7 @@ interface TranscriptProps {
 
 export function Transcript({ messages }: TranscriptProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { t } = useLanguage();
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -33,7 +35,7 @@ export function Transcript({ messages }: TranscriptProps) {
   };
 
   const getSpeakerDisplayName = (speaker: 'mikkel' | 'freja') => {
-    return speaker.charAt(0).toUpperCase() + speaker.slice(1);
+    return speaker === 'mikkel' ? t.transcript.mikkel : t.transcript.freja;
   };
 
   return (
@@ -42,7 +44,7 @@ export function Transcript({ messages }: TranscriptProps) {
       className="h-96 border rounded-lg bg-white shadow-sm"
     >
       <div className="p-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-800">Live Transcript</h3>
+        <h3 className="text-lg font-semibold text-gray-800">{t.transcript.title}</h3>
       </div>
       
       <div 
@@ -51,8 +53,8 @@ export function Transcript({ messages }: TranscriptProps) {
       >
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 mt-8">
-            <p>Transcript will appear here during recording...</p>
-            <p className="text-sm mt-2">Start speaking to see live transcription</p>
+            <p>{t.transcript.willAppearHere}</p>
+            <p className="text-sm mt-2">{t.transcript.startSpeaking}</p>
           </div>
         ) : (
           messages.map((message, index) => (
