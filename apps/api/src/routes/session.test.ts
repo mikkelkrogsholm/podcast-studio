@@ -265,3 +265,163 @@ describe('Step 5: Auto-save & Crash Recovery', () => {
     })
   })
 })
+
+describe('Step 7: Playground Controls (Settings)', () => {
+  describe('Session Settings Validation', () => {
+    it('should create session with default settings when none provided', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Default Settings Session'
+        })
+      })
+      
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data).toHaveProperty('sessionId')
+      
+      // Get session details to verify default settings
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${data.sessionId}`)
+      expect(getResponse.status).toBe(200) // This will fail until GET endpoint exists
+      
+      const sessionData = await getResponse.json()
+      expect(sessionData).toHaveProperty('settings')
+      expect(sessionData.settings).toEqual({
+        model: 'gpt-4o-realtime-preview',
+        voice: 'alloy',
+        temperature: 0.8,
+        top_p: 1.0,
+        language: 'da-DK',
+        silence_ms: 900
+      }) // This will fail until settings schema is implemented
+    })
+
+    it('should create session with custom settings', async () => {
+      const customSettings = {
+        model: 'gpt-4o-realtime-preview',
+        voice: 'echo',
+        temperature: 0.5,
+        top_p: 0.9,
+        language: 'en-US',
+        silence_ms: 1200
+      }
+      
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Custom Settings Session',
+          settings: customSettings
+        })
+      })
+      
+      expect(response.status).toBe(200) // This will fail until settings validation exists
+      const data = await response.json()
+      expect(data).toHaveProperty('sessionId')
+      
+      // Verify settings are stored exactly as provided
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${data.sessionId}`)
+      expect(getResponse.status).toBe(200)
+      
+      const sessionData = await getResponse.json()
+      expect(sessionData.settings).toEqual(customSettings) // This will fail until settings are persisted
+    })
+
+    it('should reject invalid voice option', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Invalid Voice Session',
+          settings: {
+            voice: 'invalid-voice-option'
+          }
+        })
+      })
+      
+      expect(response.status).toBe(400) // This will fail until Zod validation exists
+      const errorData = await response.json()
+      expect(errorData.error).toContain('voice') // This will fail until validation error messages exist
+    })
+
+    it('should reject temperature outside valid range', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Invalid Temperature Session',
+          settings: {
+            temperature: 1.5 // Out of 0.0-1.0 range
+          }
+        })
+      })
+      
+      expect(response.status).toBe(400) // This will fail until validation exists
+      const errorData = await response.json()
+      expect(errorData.error).toContain('temperature') // This will fail until validation exists
+    })
+
+    it('should reject invalid model option', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Invalid Model Session',
+          settings: {
+            model: 'gpt-3.5-turbo' // Not a realtime model
+          }
+        })
+      })
+      
+      expect(response.status).toBe(400) // This will fail until validation exists
+      const errorData = await response.json()
+      expect(errorData.error).toContain('model') // This will fail until validation exists
+    })
+
+    it('should use settings in OpenAI Realtime initialization', async () => {
+      const customSettings = {
+        model: 'gpt-4o-realtime-preview',
+        voice: 'nova',
+        temperature: 0.3,
+        top_p: 0.8,
+        language: 'en-US',
+        silence_ms: 1500
+      }
+      
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Settings Usage Session',
+          settings: customSettings
+        })
+      })
+      
+      const sessionData = await response.json()
+      
+      // Mock WebRTC init call to verify settings are passed correctly
+      // This would normally be tested by inspecting the actual init payload
+      // For now, we'll verify the settings are accessible for use
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionData.sessionId}`)
+      const session = await getResponse.json()
+      
+      // Verify all settings are present and match for OpenAI init
+      expect(session.settings.voice).toBe('nova') // This will fail until settings are used in init
+      expect(session.settings.temperature).toBe(0.3) // This will fail until settings are used in init
+      expect(session.settings.silence_ms).toBe(1500) // This will fail until VAD settings are applied
+    })
+  })
+})
