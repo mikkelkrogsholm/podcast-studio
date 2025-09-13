@@ -10,7 +10,7 @@ import dotenv from 'dotenv'
 import { z } from 'zod'
 // Temporarily define schemas inline until import issue is resolved
 const CreateMessageRequestSchema = z.object({
-  speaker: z.enum(['mikkel', 'freja']),
+  speaker: z.enum(['mikkel', 'freja', 'human', 'ai']),
   text: z.string().min(1),
   ts_ms: z.number().min(0),
   raw_json: z.record(z.any()),
@@ -192,19 +192,19 @@ app.post('/api/session', async (req, res) => {
     await fs.mkdir(sessionsDir, { recursive: true })
     await fs.mkdir(sessionDir, { recursive: true })
 
-    // Create audio file entries for both speakers
+    // Create audio file entries for both speakers (human/ai)
     const mikkelAudioFileId = randomUUID()
     const frejaAudioFileId = randomUUID()
-    const mikkelFilePath = path.join(sessionDir, 'mikkel.wav')
-    const frejaFilePath = path.join(sessionDir, 'freja.wav')
+    const humanFilePath = path.join(sessionDir, 'human.wav')
+    const aiFilePath = path.join(sessionDir, 'ai.wav')
     
     // Insert both audio file records
     await db.insert(audioFiles).values([
       {
         id: mikkelAudioFileId,
         sessionId,
-        speaker: 'mikkel',
-        filePath: mikkelFilePath,
+        speaker: 'human',
+        filePath: humanFilePath,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -213,8 +213,8 @@ app.post('/api/session', async (req, res) => {
       {
         id: frejaAudioFileId,
         sessionId,
-        speaker: 'freja',
-        filePath: frejaFilePath,
+        speaker: 'ai',
+        filePath: aiFilePath,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -236,14 +236,16 @@ app.post('/api/session', async (req, res) => {
 // Upload audio chunk (raw binary data)
 app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limit: '10mb' }), async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    // Normalize speakers to human/ai
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
+    }
     
     if (!req.body || !Buffer.isBuffer(req.body)) {
       return res.status(400).json({ error: 'No audio data provided' })
-    }
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
     }
 
     // Verify session exists
@@ -253,7 +255,7 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
     }
 
     const sessionDir = path.join(process.cwd(), 'sessions', sessionId)
-    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+    const audioFilePath = await resolveAudioPath(sessionDir, canonical)
 
     // Append chunk to file
     await fs.appendFile(audioFilePath, req.body)
@@ -262,6 +264,7 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
     const stats = await fs.stat(audioFilePath)
     const now = Date.now()
     
+    // Update both canonical or legacy record
     await db.update(audioFiles)
       .set({ 
         size: stats.size,
@@ -270,7 +273,17 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
+        )
+      )
+    // Fallback update for legacy rows
+    const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+    await db.update(audioFiles)
+      .set({ size: stats.size, updatedAt: now })
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, legacy)
         )
       )
 
@@ -289,10 +302,11 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
 // Finalize audio file - write proper WAV header
 app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
     }
 
     // Verify session exists
@@ -302,7 +316,7 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
     }
 
     const sessionDir = path.join(process.cwd(), 'sessions', sessionId)
-    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+    const audioFilePath = await resolveAudioPath(sessionDir, canonical)
 
     // Read the current raw audio data
     let audioData: Buffer
@@ -330,7 +344,16 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
+        )
+      )
+    const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+    await db.update(audioFiles)
+      .set({ size: finalWavData.length, updatedAt: now })
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, legacy)
         )
       )
 
@@ -349,10 +372,11 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
 // Get audio file info
 app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
     }
 
     // Get audio file from database
@@ -361,7 +385,7 @@ app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
         )
       )
       .limit(1)
@@ -601,6 +625,28 @@ app.get('/api/sessions', async (_req, res) => {
   }
 })
 
+// helper to normalize/alias speaker labels
+function normalizeSpeaker(s: string): 'human' | 'ai' {
+  if (s === 'mikkel') return 'human'
+  if (s === 'freja') return 'ai'
+  return (s === 'human' || s === 'ai') ? s : 'human'
+}
+
+async function resolveAudioPath(sessionDir: string, canonical: 'human' | 'ai'): Promise<string> {
+  const canonicalPath = path.join(sessionDir, `${canonical}.wav`)
+  const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+  const legacyPath = path.join(sessionDir, `${legacy}.wav`)
+  try {
+    await fs.stat(canonicalPath)
+    return canonicalPath
+  } catch {}
+  try {
+    await fs.stat(legacyPath)
+    return legacyPath
+  } catch {}
+  return canonicalPath
+}
+
 // GET /api/session/:id - Get session details including audio files
 app.get('/api/session/:id', async (req, res) => {
   try {
@@ -630,7 +676,8 @@ app.get('/api/session/:id', async (req, res) => {
 
     const audioFilesInfo = audioFileResults.map(audioFile => ({
       id: audioFile.id,
-      speaker: audioFile.speaker,
+      speaker: normalizeSpeaker(audioFile.speaker),
+      // If legacy file path, present canonical path for UI, but keep compatibility
       filePath: audioFile.filePath,
       size: audioFile.size || 0,
       duration: audioFile.duration,
@@ -689,7 +736,8 @@ app.post('/api/session/:id/message', async (req, res) => {
       })
     }
 
-    const { speaker, text, ts_ms, raw_json } = bodyResult.data
+    let { speaker, text, ts_ms, raw_json } = bodyResult.data
+    const canonical = normalizeSpeaker(speaker)
 
     // Check if session exists
     const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
@@ -702,7 +750,7 @@ app.post('/api/session/:id/message', async (req, res) => {
     // Insert message
     const result = await db.insert(messages).values({
       sessionId,
-      speaker,
+      speaker: canonical,
       text,
       tsMs: ts_ms,
       rawJson: JSON.stringify(raw_json),
@@ -718,7 +766,7 @@ app.post('/api/session/:id/message', async (req, res) => {
     const response = {
       id: insertedMessage.id.toString(),
       sessionId: insertedMessage.sessionId,
-      speaker: insertedMessage.speaker,
+      speaker: normalizeSpeaker(insertedMessage.speaker),
       text: insertedMessage.text,
       ts_ms: insertedMessage.tsMs,
       raw_json: JSON.parse(insertedMessage.rawJson),

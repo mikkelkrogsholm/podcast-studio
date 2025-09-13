@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Settings, SettingsSchema } from '@podcast-studio/shared';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { TextArea } from '../ui/TextArea';
 
 interface SettingsFormProps {
   onSettingsChange: (settings: Settings | null) => void;
@@ -167,9 +170,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
   const hasErrors = Object.values(errors).some(Boolean);
 
   return (
-    <div className="mb-8 p-6 border rounded-lg bg-gray-50">
-      <h2 className="text-xl font-semibold mb-4">{t.settings.title}</h2>
-      
+    <div className="space-y-4">
       {disabled && (
         <div 
           className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-sm"
@@ -182,40 +183,32 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
       <form data-testid="settings-form" className="space-y-4">
         {/* Model Selector */}
         <div>
-          <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="model" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.model}
           </label>
-          <select
+          <Select
             id="model"
             name="model"
             value={settings.model}
             onChange={(e) => handleChange('model', e.target.value)}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           >
             <option value="gpt-realtime">GPT Realtime (Latest)</option>
             <option value="gpt-4o-realtime-preview">GPT-4o Realtime Preview (Legacy)</option>
-          </select>
+          </Select>
         </div>
 
         {/* Voice Selector */}
         <div>
-          <label htmlFor="voice" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="voice" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.voice}
           </label>
-          <select
+          <Select
             id="voice"
             name="voice"
             value={settings.voice}
             onChange={(e) => handleChange('voice', e.target.value)}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           >
             <option value="cedar">Cedar</option>
             <option value="marin">Marin</option>
@@ -225,18 +218,18 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             <option value="sage">Sage</option>
             <option value="verse">Verse</option>
             <option value="alloy">Alloy</option>
-          </select>
+          </Select>
         </div>
 
         {/* Temperature Slider */}
         <div>
-          <label htmlFor="temperature" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="temperature" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.temperature}: {settings['temperature'].toFixed(1)}
             {settings.model === 'gpt-realtime' && (
               <span className="text-xs text-gray-500 ml-2">(Not supported in GPT Realtime)</span>
             )}
           </label>
-          <input
+          <Input
             id="temperature"
             name="temperature"
             type="number"
@@ -247,10 +240,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             onChange={(e) => handleChange('temperature', e.target.value)}
             onBlur={() => handleBlur('temperature')}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           />
           {errors['temperature'] && (
             <div data-testid="temperature-error" className="mt-1 text-sm text-red-600">
@@ -261,10 +250,10 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
 
         {/* Top P Slider */}
         <div>
-          <label htmlFor="top_p" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="top_p" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.topP}: {settings['top_p'].toFixed(1)}
           </label>
-          <input
+          <Input
             id="top_p"
             name="top_p"
             type="number"
@@ -275,10 +264,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             onChange={(e) => handleChange('top_p', e.target.value)}
             onBlur={() => handleBlur('top_p')}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           />
           {errors['top_p'] && (
             <div data-testid="top_p-error" className="mt-1 text-sm text-red-600">
@@ -289,31 +274,27 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
 
         {/* Language Selector */}
         <div>
-          <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="language" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.language}
           </label>
-          <select
+          <Select
             id="language"
             name="language"
             value={settings.language}
             onChange={(e) => handleChange('language', e.target.value)}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           >
             <option value="da-DK">Dansk (da-DK)</option>
             <option value="en-US">English (en-US)</option>
-          </select>
+          </Select>
         </div>
 
         {/* Silence Threshold */}
         <div>
-          <label htmlFor="silence_ms" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="silence_ms" className="block text-sm font-medium mb-1 text-ink">
             {t.settings.silenceThreshold} (ms)
           </label>
-          <input
+          <Input
             id="silence_ms"
             name="silence_ms"
             type="number"
@@ -324,10 +305,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             onChange={(e) => handleChange('silence_ms', e.target.value)}
             onBlur={() => handleBlur('silence_ms')}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           />
           {errors['silence_ms'] && (
             <div data-testid="silence_ms-error" className="mt-1 text-sm text-red-600">
@@ -339,7 +316,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
         {/* Persona Prompt */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="persona_prompt" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="persona_prompt" className="block text-sm font-medium text-ink">
               {t.settings.personaPrompt}
             </label>
             {disabled && (
@@ -351,7 +328,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
               </span>
             )}
           </div>
-          <textarea
+          <TextArea
             id="persona_prompt"
             name="persona_prompt"
             data-testid="persona-prompt"
@@ -361,10 +338,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             onChange={(e) => handleChange('persona_prompt', e.target.value)}
             onBlur={() => handleBlur('persona_prompt')}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           />
           <div className="flex items-center justify-between mt-1">
             <div 
@@ -389,10 +362,10 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
 
         {/* Context Prompt */}
         <div>
-          <label htmlFor="context_prompt" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="context_prompt" className="block text-sm font-medium text-ink mb-1">
             {t.settings.contextPrompt}
           </label>
-          <textarea
+          <TextArea
             id="context_prompt"
             name="context_prompt"
             data-testid="context-prompt"
@@ -402,10 +375,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
             onChange={(e) => handleChange('context_prompt', e.target.value)}
             onBlur={() => handleBlur('context_prompt')}
             disabled={disabled}
-            className={`
-              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
-              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
-            `}
           />
           <div className="flex items-center justify-between mt-1">
             <div 

@@ -11,9 +11,9 @@ export function CurrentSettings({ settings }: CurrentSettingsProps) {
   const { t } = useLanguage();
 
   return (
-    <div data-testid="current-settings" className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-      <h3 className="font-medium text-blue-900 mb-2">{t.settings.title}</h3>
-      <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
+    <div data-testid="current-settings" className="mb-4 p-3 bg-elevated border border-white/60 rounded-xl shadow-soft">
+      <h3 className="font-medium text-ink mb-2">{t.settings.title}</h3>
+      <div className="grid grid-cols-2 gap-2 text-sm text-ink">
         <div>
           <span className="font-medium">{t.settings.voice}:</span> {settings.voice}
         </div>

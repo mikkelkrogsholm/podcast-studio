@@ -11,15 +11,15 @@ export function VolumeIndicator({ level, label, isMuted, onMuteToggle }: VolumeI
   const activeSegments = Math.ceil((level / 100) * segments);
 
   return (
-    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-      <div className="flex items-center space-x-2 min-w-[80px]">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+    <div className="flex items-center gap-3 p-3 bg-elevated rounded-xl shadow-soft">
+      <div className="flex items-center gap-2 min-w-[80px]">
+        <span className="text-sm font-medium text-ink">{label}</span>
         <button
           onClick={onMuteToggle}
           className={`p-1 rounded ${
             isMuted 
               ? 'bg-red-500 text-white hover:bg-red-600' 
-              : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+              : 'bg-white/70 text-ink hover:bg-white'
           } transition-colors`}
           title={isMuted ? 'Unmute' : 'Mute'}
         >
@@ -39,13 +39,13 @@ export function VolumeIndicator({ level, label, isMuted, onMuteToggle }: VolumeI
       </div>
       
       <div className="flex-1">
-        <div className="flex space-x-1 items-end h-8">
+        <div className="flex gap-1 items-end h-8">
           {Array.from({ length: segments }, (_, i) => {
             const isActive = !isMuted && i < activeSegments;
             const height = `${((i + 1) / segments) * 100}%`;
             
             // Color based on level (green -> yellow -> red)
-            let bgColor = 'bg-gray-300';
+            let bgColor = 'bg-[rgba(0,0,0,0.08)]';
             if (isActive) {
               if (i < segments * 0.6) {
                 bgColor = 'bg-green-500';
@@ -59,7 +59,7 @@ export function VolumeIndicator({ level, label, isMuted, onMuteToggle }: VolumeI
             return (
               <div
                 key={i}
-                className={`w-2 ${bgColor} transition-all duration-100`}
+                className={`w-2 ${bgColor} rounded-sm transition-all duration-100`}
                 style={{ height }}
               />
             );
@@ -67,7 +67,7 @@ export function VolumeIndicator({ level, label, isMuted, onMuteToggle }: VolumeI
         </div>
       </div>
       
-      <div className="text-xs text-gray-500 min-w-[40px] text-right">
+      <div className="text-xs text-ink-muted min-w-[40px] text-right">
         {isMuted ? 'MUTE' : `${Math.round(level)}%`}
       </div>
     </div>

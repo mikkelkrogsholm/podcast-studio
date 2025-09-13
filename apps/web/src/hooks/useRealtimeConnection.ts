@@ -9,7 +9,7 @@ interface ConnectionEvent {
 }
 
 interface TranscriptMessage {
-  speaker: 'mikkel' | 'freja';
+  speaker: 'human' | 'ai';
   text: string;
   ts_ms: number;
   raw_json: Record<string, any>;
@@ -44,7 +44,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     setStatus(status);
   }, []);
 
-  const addTranscriptMessage = useCallback((speaker: 'mikkel' | 'freja', text: string, rawEvent: any) => {
+  const addTranscriptMessage = useCallback((speaker: 'human' | 'ai', text: string, rawEvent: any) => {
     const message: TranscriptMessage = {
       speaker,
       text,
@@ -206,24 +206,24 @@ export function useRealtimeConnection(): RealtimeConnectionState {
         try {
           const data = JSON.parse(event.data);
           
-          // Handle transcript events for Mikkel (user speech)
+          // Handle transcript events for Human (user speech)
           if (data.type === 'conversation.item.input_audio_transcription.completed') {
             if (data.transcript) {
-              addTranscriptMessage('mikkel', data.transcript, data);
+              addTranscriptMessage('human', data.transcript, data);
             }
           }
           
-          // Handle transcript events for Freja (AI response)
+          // Handle transcript events for AI response
           if (data.type === 'response.audio_transcript.delta') {
             if (data.delta) {
-              addTranscriptMessage('freja', data.delta, data);
+              addTranscriptMessage('ai', data.delta, data);
             }
           }
           
           // Handle full AI response transcript
           if (data.type === 'response.audio_transcript.done') {
             if (data.transcript) {
-              addTranscriptMessage('freja', data.transcript, data);
+              addTranscriptMessage('ai', data.transcript, data);
             }
           }
           
@@ -289,13 +289,15 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   // Listen for test events from Playwright tests
   useEffect(() => {
     const handleTranscriptEvent = (event: CustomEvent) => {
-      const { speaker, text, raw_json } = event.detail;
-      addTranscriptMessage(speaker, text, raw_json);
+      const { speaker, text, raw_json } = event.detail as any;
+      const mapped = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker;
+      addTranscriptMessage(mapped, text, raw_json);
     };
 
     const handleTranscriptMessage = (event: CustomEvent) => {
-      const { speaker, text, raw_json } = event.detail;
-      addTranscriptMessage(speaker, text, raw_json);
+      const { speaker, text, raw_json } = event.detail as any;
+      const mapped = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker;
+      addTranscriptMessage(mapped, text, raw_json);
     };
 
     window.addEventListener('transcript-event', handleTranscriptEvent as EventListener);

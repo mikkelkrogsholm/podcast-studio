@@ -39,7 +39,7 @@ beforeEach(() => {
 })
 
 describe('Dual Track Audio Recording (Step 4)', () => {
-  it('should create audio_files entries for both mikkel and freja tracks', async () => {
+  it('should create audio_files entries for both human and ai tracks', async () => {
     // First create a session
     const sessionResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
       method: 'POST',
@@ -55,11 +55,13 @@ describe('Dual Track Audio Recording (Step 4)', () => {
     const sessionData = await sessionResponse.json()
     const sessionId = sessionData.sessionId
     
-    // Verify both mikkel and freja audio_files entries were created
+    // Backward-compatibility properties exist; accept legacy or canonical values
     expect(sessionData).toHaveProperty('mikkelAudioFile')
-    expect(sessionData).toHaveProperty('frejaAudioFile') // This will fail until implemented
-    expect(sessionData.mikkelAudioFile).toContain('mikkel.wav')
-    expect(sessionData.frejaAudioFile).toContain('freja.wav')
+    expect(sessionData).toHaveProperty('frejaAudioFile')
+    const mPath = String(sessionData.mikkelAudioFile)
+    const aPath = String(sessionData.frejaAudioFile)
+    expect(mPath.includes('mikkel.wav') || mPath.includes('human.wav')).toBe(true)
+    expect(aPath.includes('freja.wav') || aPath.includes('ai.wav')).toBe(true)
   })
   
   it('should handle audio uploads for both speakers', async () => {
@@ -82,7 +84,7 @@ describe('Dual Track Audio Recording (Step 4)', () => {
     const frejaChunk = new ArrayBuffer(2048)
     
     // Upload mikkel chunk
-    const mikkelUpload = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/mikkel`, {
+    const mikkelUpload = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/human`, {
       method: 'POST',
       headers: {
         'Content-Type': 'audio/wav'
@@ -93,7 +95,7 @@ describe('Dual Track Audio Recording (Step 4)', () => {
     expect(mikkelUpload.status).toBe(200)
     
     // Upload freja chunk - this will fail until endpoint supports freja
-    const frejaUpload = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/freja`, {
+    const frejaUpload = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/ai`, {
       method: 'POST',
       headers: {
         'Content-Type': 'audio/wav'
@@ -104,22 +106,22 @@ describe('Dual Track Audio Recording (Step 4)', () => {
     expect(frejaUpload.status).toBe(200) // Will fail until implemented
     
     // Finalize both tracks
-    const mikkelFinalize = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/mikkel/finalize`, {
+    const mikkelFinalize = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/human/finalize`, {
       method: 'POST'
     })
     expect(mikkelFinalize.status).toBe(200)
     
-    const frejaFinalize = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/freja/finalize`, {
+    const frejaFinalize = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/ai/finalize`, {
       method: 'POST'
     })
     expect(frejaFinalize.status).toBe(200) // Will fail until implemented
     
     // Verify both files exist and have content
-    const mikkelInfo = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/mikkel/info`)
+    const mikkelInfo = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/human/info`)
     const mikkelData = await mikkelInfo.json()
     expect(mikkelData.size).toBeGreaterThan(44) // More than WAV header
     
-    const frejaInfo = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/freja/info`)
+    const frejaInfo = await fetch(`http://localhost:${TEST_PORT}/api/audio/${sessionId}/ai/info`)
     const frejaData = await frejaInfo.json()
     expect(frejaData.size).toBeGreaterThan(44) // Will fail until implemented
   })
@@ -169,10 +171,10 @@ describe('Dual Track Audio Recording (Step 4)', () => {
       .from(audioFiles)
       .where(eq(audioFiles.sessionId, sessionId))
     
-    expect(audioFilesInDb).toHaveLength(2) // Both mikkel and freja entries
+    expect(audioFilesInDb).toHaveLength(2) // Both human and ai entries
     
-    const mikkelFile = audioFilesInDb.find(f => f.speaker === 'mikkel')
-    const frejaFile = audioFilesInDb.find(f => f.speaker === 'freja')
+    const mikkelFile = audioFilesInDb.find(f => f.speaker === 'human')
+    const frejaFile = audioFilesInDb.find(f => f.speaker === 'ai')
     
     expect(mikkelFile).toBeDefined()
     expect(mikkelFile?.size).toBeGreaterThan(0)
