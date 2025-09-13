@@ -16,6 +16,8 @@ const defaultSettings: Settings = {
   top_p: 1.0,
   language: 'da-DK',
   silence_ms: 900,
+  persona_prompt: '',
+  context_prompt: '',
 };
 
 interface ValidationErrors {
@@ -33,17 +35,39 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
-        const validatedSettings = SettingsSchema.parse(parsed);
+        // Merge with defaults to ensure all fields are present
+        const mergedSettings = {
+          ...defaultSettings,
+          ...parsed,
+          // Ensure persona and context prompts are strings
+          persona_prompt: parsed.persona_prompt || '',
+          context_prompt: parsed.context_prompt || ''
+        };
+        const validatedSettings = SettingsSchema.parse(mergedSettings);
         setSettings(validatedSettings);
-        onSettingsChange(validatedSettings);
       } catch (error) {
-        console.warn('Invalid saved settings, using defaults');
-        onSettingsChange(defaultSettings);
+        console.warn('Invalid saved settings, using defaults', error);
+        setSettings(defaultSettings);
       }
     } else {
-      onSettingsChange(defaultSettings);
+      setSettings(defaultSettings);
     }
-  }, [onSettingsChange]);
+  }, []); // Remove onSettingsChange dependency
+  
+  // Notify parent when settings change (separate effect)
+  useEffect(() => {
+    const hasErrors = Object.values(errors).some(Boolean);
+    if (!hasErrors) {
+      try {
+        const validatedSettings = SettingsSchema.parse(settings);
+        onSettingsChange(validatedSettings);
+      } catch (validationError) {
+        onSettingsChange(null);
+      }
+    } else {
+      onSettingsChange(null);
+    }
+  }, [settings, errors, onSettingsChange]);
 
   // Save settings to localStorage when changed
   useEffect(() => {
@@ -65,6 +89,11 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
       if (field === 'silence_ms') {
         if (value <= 0) {
           return 'must be positive';
+        }
+      }
+      if (field === 'persona_prompt' || field === 'context_prompt') {
+        if (typeof value === 'string' && value.length > 5000) {
+          return t.settings.tooLong;
         }
       }
       return error.errors?.[0]?.message || t.settings.validationError;
@@ -96,7 +125,6 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
       ...settings,
       [field]: parsedValue,
     };
-
     setSettings(newSettings);
     
     // Only update parent if there are no errors
@@ -298,6 +326,98 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
           {errors['silence_ms'] && (
             <div data-testid="silence_ms-error" className="mt-1 text-sm text-red-600">
               {errors['silence_ms']}
+            </div>
+          )}
+        </div>
+
+        {/* Persona Prompt */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="persona_prompt" className="block text-sm font-medium text-gray-700">
+              {t.settings.personaPrompt}
+            </label>
+            {disabled && (
+              <span 
+                data-testid="persona-locked-badge"
+                className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
+              >
+                {t.settings.personaLocked}
+              </span>
+            )}
+          </div>
+          <textarea
+            id="persona_prompt"
+            name="persona_prompt"
+            data-testid="persona-prompt"
+            rows={4}
+            placeholder={t.settings.personaPlaceholder}
+            value={settings.persona_prompt || ''}
+            onChange={(e) => handleChange('persona_prompt', e.target.value)}
+            onBlur={() => handleBlur('persona_prompt')}
+            disabled={disabled}
+            className={`
+              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
+              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
+            `}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <div 
+              data-testid="persona-char-count"
+              className={`text-xs ${
+                (settings.persona_prompt?.length || 0) > 4500 
+                  ? 'text-red-600 font-medium' 
+                  : (settings.persona_prompt?.length || 0) > 4000 
+                  ? 'text-yellow-600 font-medium' 
+                  : 'text-gray-500'
+              }`}
+            >
+              {settings.persona_prompt?.length || 0}/5000 {t.settings.characterCount}
+            </div>
+          </div>
+          {errors['persona_prompt'] && (
+            <div data-testid="persona-error" className="mt-1 text-sm text-red-600">
+              {errors['persona_prompt']}
+            </div>
+          )}
+        </div>
+
+        {/* Context Prompt */}
+        <div>
+          <label htmlFor="context_prompt" className="block text-sm font-medium text-gray-700 mb-1">
+            {t.settings.contextPrompt}
+          </label>
+          <textarea
+            id="context_prompt"
+            name="context_prompt"
+            data-testid="context-prompt"
+            rows={4}
+            placeholder={t.settings.contextPlaceholder}
+            value={settings.context_prompt || ''}
+            onChange={(e) => handleChange('context_prompt', e.target.value)}
+            onBlur={() => handleBlur('context_prompt')}
+            disabled={disabled}
+            className={`
+              w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500
+              ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
+            `}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <div 
+              data-testid="context-char-count"
+              className={`text-xs ${
+                (settings.context_prompt?.length || 0) > 4500 
+                  ? 'text-red-600 font-medium' 
+                  : (settings.context_prompt?.length || 0) > 4000 
+                  ? 'text-yellow-600 font-medium' 
+                  : 'text-gray-500'
+              }`}
+            >
+              {settings.context_prompt?.length || 0}/5000 {t.settings.characterCount}
+            </div>
+          </div>
+          {errors['context_prompt'] && (
+            <div data-testid="context-error" className="mt-1 text-sm text-red-600">
+              {errors['context_prompt']}
             </div>
           )}
         </div>

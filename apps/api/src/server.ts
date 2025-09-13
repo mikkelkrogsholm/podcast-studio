@@ -29,6 +29,8 @@ const SettingsSchema = z.object({
 const CreateSessionRequestSchema = z.object({
   title: z.string(),
   settings: SettingsSchema.optional(),
+  persona_prompt: z.string().max(5000).optional(),
+  context_prompt: z.string().max(5000).optional(),
 })
 
 // MessageResponseSchema not needed - using direct response objects
@@ -69,10 +71,49 @@ app.get('/health', (_req, res) => {
 })
 
 // Get ephemeral token for OpenAI Realtime API
-app.post('/api/realtime/token', async (_req, res) => {
+app.post('/api/realtime/token', async (req, res) => {
   try {
     if (!OPENAI_API_KEY) {
       return res.status(500).json({ error: 'OPENAI_API_KEY not configured in environment' })
+    }
+
+    // Extract sessionId from request body to get prompts and settings
+    const { sessionId } = req.body as { sessionId?: string }
+    
+    let instructions = 'You are a helpful AI assistant in a podcast studio.'
+    let model = 'gpt-4o-realtime-preview-2024-12-17'
+    let voice = 'shimmer'
+    
+    // If sessionId is provided, get the session details for custom prompts and settings
+    if (sessionId) {
+      try {
+        const sessionResult = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+        if (sessionResult.length > 0) {
+          const session = sessionResult[0]
+          
+          // Build instructions from persona and context prompts
+          const personaPrompt = session?.personaPrompt || ''
+          const contextPrompt = session?.contextPrompt || ''
+          
+          if (personaPrompt || contextPrompt) {
+            instructions = [personaPrompt, contextPrompt].filter(Boolean).join('\n\n')
+          }
+          
+          // Parse and apply settings if available
+          if (session?.settings) {
+            try {
+              const parsedSettings = JSON.parse(session.settings)
+              model = parsedSettings.model || model
+              voice = parsedSettings.voice || voice
+            } catch (error) {
+              console.error('Failed to parse session settings:', error)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch session for prompts:', error)
+        // Continue with default instructions
+      }
     }
 
     // Create ephemeral token with OpenAI
@@ -83,9 +124,9 @@ app.post('/api/realtime/token', async (_req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        voice: 'shimmer',
-        instructions: 'You are a helpful AI assistant in a podcast studio.'
+        model,
+        voice,
+        instructions
       })
     })
 
@@ -109,15 +150,22 @@ app.post('/api/session', async (req, res) => {
     // Validate request body
     const bodyResult = CreateSessionRequestSchema.safeParse(req.body)
     if (!bodyResult.success) {
-      // Extract field names from validation errors for better error messages
-      const fieldNames = bodyResult.error.errors.map(err => err.path.join('.')).join(', ')
+      // Create more detailed error messages for validation failures
+      const errorMessages = bodyResult.error.errors.map(err => {
+        const fieldPath = err.path.join('.')
+        if (err.code === 'too_big') {
+          return `${fieldPath} exceeds maximum length of ${err.maximum} characters`
+        }
+        return `${fieldPath}: ${err.message}`
+      })
+      
       return res.status(400).json({ 
-        error: `Invalid request body: ${fieldNames}`, 
+        error: errorMessages.join(', '),
         details: bodyResult.error.errors 
       })
     }
 
-    const { title, settings } = bodyResult.data
+    const { title, settings, persona_prompt, context_prompt } = bodyResult.data
     const sessionId = randomUUID()
     const now = Date.now()
 
@@ -129,6 +177,8 @@ app.post('/api/session', async (req, res) => {
       id: sessionId,
       title: title || 'New Recording Session',
       settings: JSON.stringify(finalSettings),
+      personaPrompt: persona_prompt || '',
+      contextPrompt: context_prompt || '',
       status: 'active',
       lastHeartbeat: now, // Initialize heartbeat to creation time
       createdAt: now,
@@ -604,6 +654,8 @@ app.get('/api/session/:id', async (req, res) => {
       title: session.title,
       status: session.status,
       settings: parsedSettings,
+      persona_prompt: session.personaPrompt || '',
+      context_prompt: session.contextPrompt || '',
       lastHeartbeat: session.lastHeartbeat,
       completedAt: session.completedAt,
       createdAt: session.createdAt,

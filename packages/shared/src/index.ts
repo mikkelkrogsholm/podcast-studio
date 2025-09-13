@@ -54,7 +54,7 @@ export type CreateMessageRequest = z.infer<typeof CreateMessageRequestSchema>;
 export type MessageResponse = z.infer<typeof MessageResponseSchema>;
 export type GetMessagesResponse = z.infer<typeof GetMessagesResponseSchema>;
 
-// Settings schemas for Step 07: Playground Controls
+// Settings schemas for Step 07: Playground Controls and Step 08: Persona/Context
 export const SettingsSchema = z.object({
   model: z.literal('gpt-4o-realtime-preview'),
   voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']),
@@ -62,14 +62,18 @@ export const SettingsSchema = z.object({
   top_p: z.number().min(0.0).max(1.0),
   language: z.enum(['da-DK', 'en-US']),
   silence_ms: z.number().positive(),
+  persona_prompt: z.string().max(5000),
+  context_prompt: z.string().max(5000),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
 
-// Updated session request schema to include settings
+// Updated session request schema to include settings and prompts
 export const CreateSessionWithSettingsRequestSchema = z.object({
   title: z.string(),
   settings: SettingsSchema.optional(),
+  persona_prompt: z.string().max(5000).optional(),
+  context_prompt: z.string().max(5000).optional(),
 });
 
 export type CreateSessionWithSettingsRequest = z.infer<typeof CreateSessionWithSettingsRequestSchema>;
