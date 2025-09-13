@@ -775,6 +775,274 @@ app.get('/api/session/:id/messages', async (req, res) => {
   }
 })
 
+// GET /api/session/:id/transcript.json - Export transcript as JSON
+app.get('/api/session/:id/transcript.json', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for transcript export
+    const transcriptMessages = messageResults.map(msg => ({
+      speaker: msg.speaker,
+      text: msg.text,
+      timestamp: msg.tsMs,
+    }))
+
+    // Set correct content-type header
+    res.setHeader('Content-Type', 'application/json')
+
+    return res.json({
+      sessionId,
+      messages: transcriptMessages
+    })
+
+  } catch (error) {
+    console.error('Failed to export transcript as JSON:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as JSON' })
+  }
+})
+
+// GET /api/session/:id/transcript.md - Export transcript as Markdown
+app.get('/api/session/:id/transcript.md', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(asc(messages.tsMs))
+
+    // Generate markdown content
+    let markdownContent = `# ${session.title || 'Podcast Session'}\n\n`
+
+    if (messageResults.length === 0) {
+      markdownContent += '_No messages in this session_\n'
+    } else {
+      // Format each message with timestamp and speaker
+      for (const msg of messageResults) {
+        const timestamp = new Date(msg.tsMs).toISOString().substr(11, 12) // Extract time portion HH:MM:SS.mmm
+        markdownContent += `**[${timestamp}] ${msg.speaker}:** ${msg.text}\n\n`
+      }
+    }
+
+    // Set correct content-type header
+    res.setHeader('Content-Type', 'text/markdown')
+
+    return res.send(markdownContent)
+
+  } catch (error) {
+    console.error('Failed to export transcript as Markdown:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as Markdown' })
+  }
+})
+
+// Step 9: File Download and Export endpoints
+
+// GET /api/session/:id/file/:speaker - Stream audio file
+app.get('/api/session/:id/file/:speaker', async (req, res) => {
+  try {
+    const { id, speaker } = req.params
+
+    // Validate speaker parameter
+    if (speaker !== 'mikkel' && speaker !== 'freja') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    }
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Check if audio file exists in database
+    const audioFileEntry = await db.select()
+      .from(audioFiles)
+      .where(
+        and(
+          eq(audioFiles.sessionId, id),
+          eq(audioFiles.speaker, speaker)
+        )
+      )
+      .limit(1)
+
+    if (audioFileEntry.length === 0) {
+      return res.status(404).json({ error: 'Audio file not found' })
+    }
+
+    // Build file path
+    const sessionDir = path.join(process.cwd(), 'sessions', id)
+    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+
+    // Check if file exists on filesystem
+    try {
+      await fs.access(audioFilePath)
+    } catch (error) {
+      return res.status(404).json({ error: 'Audio file not found' })
+    }
+
+    // Set headers for audio streaming
+    res.setHeader('Content-Type', 'audio/wav')
+    res.setHeader('Content-Disposition', `attachment; filename="${speaker}.wav"`)
+
+    // Stream the file
+    const fileBuffer = await fs.readFile(audioFilePath)
+    return res.send(fileBuffer)
+
+  } catch (error) {
+    console.error('Failed to stream audio file:', error)
+    return res.status(500).json({ error: 'Failed to stream audio file' })
+  }
+})
+
+// GET /api/session/:id/transcript.json - Export transcript as JSON
+app.get('/api/session/:id/transcript.json', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for JSON export
+    const formattedMessages = messageResults.map(msg => ({
+      id: msg.id.toString(),
+      sessionId: msg.sessionId,
+      speaker: msg.speaker,
+      text: msg.text,
+      ts_ms: msg.tsMs,
+      raw_json: JSON.parse(msg.rawJson),
+      createdAt: msg.createdAt,
+    }))
+
+    // Set JSON content type without charset to match test expectations
+    res.setHeader('Content-Type', 'application/json')
+
+    // Return transcript data as JSON string to avoid Express adding charset
+    return res.send(JSON.stringify({
+      sessionId: id,
+      title: session?.title,
+      messages: formattedMessages,
+      exportedAt: Date.now()
+    }))
+
+  } catch (error) {
+    console.error('Failed to export transcript as JSON:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as JSON' })
+  }
+})
+
+// GET /api/session/:id/transcript.md - Export transcript as Markdown
+app.get('/api/session/:id/transcript.md', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    // Generate Markdown content
+    let markdownContent = `# ${session?.title || 'Podcast Transcript'}\n\n`
+    markdownContent += `**Session ID:** ${id}\n`
+    markdownContent += `**Exported:** ${new Date().toISOString()}\n\n`
+
+    if (messageResults.length === 0) {
+      markdownContent += '*No messages in this session.*\n'
+    } else {
+      markdownContent += `## Transcript\n\n`
+
+      for (const msg of messageResults) {
+        // Convert timestamp to readable format
+        const timestamp = new Date(msg.tsMs).toISOString()
+        markdownContent += `**${msg.speaker}** *(${timestamp})*: ${msg.text}\n\n`
+      }
+    }
+
+    // Set Markdown content type without charset to match test expectations
+    res.setHeader('Content-Type', 'text/markdown')
+    res.setHeader('Content-Disposition', `attachment; filename="transcript-${id}.md"`)
+
+    // Return markdown content
+    return res.send(markdownContent)
+
+  } catch (error) {
+    console.error('Failed to export transcript as Markdown:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as Markdown' })
+  }
+})
+
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   app.listen(PORT, () => {

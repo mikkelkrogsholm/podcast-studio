@@ -105,6 +105,16 @@ interface Translations {
     tooLong: string;
     personaLocked: string;
   };
+  download: {
+    title: string;
+    downloadMikkelAudio: string;
+    downloadFrejaAudio: string;
+    downloadTranscriptJson: string;
+    downloadTranscriptMarkdown: string;
+    downloading: string;
+    downloadFailed: string;
+    noAudioFiles: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -209,6 +219,16 @@ const translations: Record<Language, Translations> = {
       tooLong: 'For langt (maks 5000 tegn)',
       personaLocked: 'Persona låst',
     },
+    download: {
+      title: 'Downloads',
+      downloadMikkelAudio: 'Download Mikkels lydspor',
+      downloadFrejaAudio: 'Download Frejas lydspor',
+      downloadTranscriptJson: 'Download transkription (JSON)',
+      downloadTranscriptMarkdown: 'Download transkription (Markdown)',
+      downloading: 'Downloader...',
+      downloadFailed: 'Download fejlede',
+      noAudioFiles: 'Ingen lydfiler tilgængelige',
+    },
   },
   en: {
     title: 'Podcast Studio',
@@ -310,6 +330,16 @@ const translations: Record<Language, Translations> = {
       characterCount: 'characters',
       tooLong: 'Too long (max 5000 characters)',
       personaLocked: 'Persona locked',
+    },
+    download: {
+      title: 'Downloads',
+      downloadMikkelAudio: 'Download Mikkel\'s Audio',
+      downloadFrejaAudio: 'Download Freja\'s Audio',
+      downloadTranscriptJson: 'Download Transcript (JSON)',
+      downloadTranscriptMarkdown: 'Download Transcript (Markdown)',
+      downloading: 'Downloading...',
+      downloadFailed: 'Download failed',
+      noAudioFiles: 'No audio files available',
     },
   },
 };

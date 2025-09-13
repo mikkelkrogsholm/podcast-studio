@@ -3,6 +3,7 @@
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { downloadMikkelAudio, downloadFrejaAudio, downloadTranscriptJson, downloadTranscriptMarkdown } from '../utils/download';
 
 interface SessionHistoryProps {
   onResumeSession?: (sessionId: string) => void;
@@ -24,6 +25,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [downloadStates, setDownloadStates] = useState<Record<string, string>>({});
   const { t } = useLanguage();
 
   const formatDate = (timestamp: number) => {
@@ -98,6 +100,27 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
       await fetchSessions();
     } catch (err) {
       console.error('Failed to finish session:', err);
+    }
+  };
+
+  const handleDownload = async (sessionId: string, type: string, downloadFn: any) => {
+    const stateKey = `${sessionId}-${type}`;
+
+    try {
+      await downloadFn({
+        sessionId,
+        onStart: () => setDownloadStates(prev => ({ ...prev, [stateKey]: t.download.downloading })),
+        onSuccess: () => setDownloadStates(prev => ({ ...prev, [stateKey]: '' })),
+        onError: (error: string) => {
+          console.error(`Download failed for ${type}:`, error);
+          setDownloadStates(prev => ({ ...prev, [stateKey]: t.download.downloadFailed }));
+          setTimeout(() => {
+            setDownloadStates(prev => ({ ...prev, [stateKey]: '' }));
+          }, 3000);
+        }
+      });
+    } catch (err) {
+      console.error('Download error:', err);
     }
   };
 
@@ -240,7 +263,63 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                           </div>
                         ))}
                       </div>
-                      
+
+                      {/* Download Section for Completed Sessions */}
+                      {session.status === 'completed' && sessionDetails.audioFiles && sessionDetails.audioFiles.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <h4 className="font-medium mb-3">{t.download.title}:</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* Audio Downloads */}
+                            {sessionDetails.audioFiles?.find((f: any) => f.speaker === 'mikkel' && f.size > 0) && (
+                              <button
+                                onClick={() => handleDownload(session.id, 'mikkel', downloadMikkelAudio)}
+                                disabled={downloadStates[`${session.id}-mikkel`] === t.download.downloading}
+                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm rounded flex items-center justify-center"
+                              >
+                                {downloadStates[`${session.id}-mikkel`] || t.download.downloadMikkelAudio}
+                              </button>
+                            )}
+
+                            {sessionDetails.audioFiles?.find((f: any) => f.speaker === 'freja' && f.size > 0) && (
+                              <button
+                                onClick={() => handleDownload(session.id, 'freja', downloadFrejaAudio)}
+                                disabled={downloadStates[`${session.id}-freja`] === t.download.downloading}
+                                className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white text-sm rounded flex items-center justify-center"
+                              >
+                                {downloadStates[`${session.id}-freja`] || t.download.downloadFrejaAudio}
+                              </button>
+                            )}
+
+                            {/* Transcript Downloads */}
+                            <button
+                              onClick={() => handleDownload(session.id, 'json', downloadTranscriptJson)}
+                              disabled={downloadStates[`${session.id}-json`] === t.download.downloading}
+                              className="px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white text-sm rounded flex items-center justify-center"
+                            >
+                              {downloadStates[`${session.id}-json`] || t.download.downloadTranscriptJson}
+                            </button>
+
+                            <button
+                              onClick={() => handleDownload(session.id, 'markdown', downloadTranscriptMarkdown)}
+                              disabled={downloadStates[`${session.id}-markdown`] === t.download.downloading}
+                              className="px-3 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white text-sm rounded flex items-center justify-center"
+                            >
+                              {downloadStates[`${session.id}-markdown`] || t.download.downloadTranscriptMarkdown}
+                            </button>
+                          </div>
+
+                          {/* Error Messages */}
+                          {Object.entries(downloadStates).some(([key, state]) => key.startsWith(session.id) && state === t.download.downloadFailed) && (
+                            <p className="text-red-600 text-sm mt-2">{t.download.downloadFailed}</p>
+                          )}
+
+                          {/* No audio files message */}
+                          {(!sessionDetails.audioFiles || sessionDetails.audioFiles.length === 0 || sessionDetails.audioFiles.every((f: any) => f.size === 0)) && (
+                            <p className="text-gray-500 text-sm">{t.download.noAudioFiles}</p>
+                          )}
+                        </div>
+                      )}
+
                       {session.status === 'incomplete' && onResumeSession && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <button
