@@ -31,6 +31,7 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
   const { t } = useLanguage();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [showSaved, setShowSaved] = useState(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -75,6 +76,14 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
   // Save settings to localStorage when changed
   useEffect(() => {
     localStorage.setItem('podcast-studio-settings', JSON.stringify(settings));
+
+    // Show saved confirmation
+    setShowSaved(true);
+    const timer = setTimeout(() => {
+      setShowSaved(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [settings]);
 
   const validateField = (field: keyof Settings, value: any): string | null => {
@@ -171,6 +180,16 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
 
   return (
     <div className="space-y-4">
+      {/* Saved confirmation */}
+      {showSaved && (
+        <div
+          className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm flex items-center gap-2"
+          data-testid="settings-saved-message"
+        >
+          <span className="text-green-600">✓</span>
+          <span>{t.settings.savedSuccessfully || 'Settings saved successfully'}</span>
+        </div>
+      )}
       {disabled && (
         <div 
           className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-yellow-800 text-sm"
