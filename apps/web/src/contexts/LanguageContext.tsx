@@ -47,6 +47,7 @@ interface Translations {
     pause: string;
     resume: string;
     stop: string;
+    interrupt: string;
     sessions: string;
   };
   ui: {
@@ -65,6 +66,7 @@ interface Translations {
     pause: string;
     resume: string;
     stop: string;
+    interrupt: string;
     sessions: string;
     mute: string;
     unmute: string;
@@ -144,6 +146,15 @@ interface Translations {
     downloadFailed: string;
     noAudioFiles: string;
   };
+  sessionManagement: {
+    stoppingSesssion: string;
+    sessionStopped: string;
+    failedToStopSession: string;
+    aiInterrupted: string;
+    reconnecting: string;
+    reconnectFailed: string;
+    maxReconnectAttempts: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -190,6 +201,7 @@ const translations: Record<Language, Translations> = {
       pause: 'Pause',
       resume: 'Fortsæt',
       stop: 'Stop',
+      interrupt: 'Afbryd',
       sessions: 'Sessioner',
     },
     ui: {
@@ -207,7 +219,8 @@ const translations: Record<Language, Translations> = {
       record: 'Start optagelse',
       pause: 'Pause',
       resume: 'Fortsæt',
-      stop: 'Stop',
+      stop: 'Stop optagelse og afslut session',
+      interrupt: 'Afbryd AI tale',
       sessions: 'Sessioner',
       mute: 'Slå lyd fra',
       unmute: 'Slå lyd til',
@@ -287,6 +300,15 @@ const translations: Record<Language, Translations> = {
       downloadFailed: 'Download fejlede',
       noAudioFiles: 'Ingen lydfiler tilgængelige',
     },
+    sessionManagement: {
+      stoppingSesssion: 'Stopper session...',
+      sessionStopped: 'Session stoppet',
+      failedToStopSession: 'Kunne ikke stoppe session',
+      aiInterrupted: 'AI afbrudt',
+      reconnecting: 'Genopretter forbindelse...',
+      reconnectFailed: 'Genopretning fejlede',
+      maxReconnectAttempts: 'Maksimale genopretningsforsøg nået',
+    },
   },
   en: {
     title: 'Podcast Studio',
@@ -331,6 +353,7 @@ const translations: Record<Language, Translations> = {
       pause: 'Pause',
       resume: 'Resume',
       stop: 'Stop',
+      interrupt: 'Interrupt',
       sessions: 'Sessions',
     },
     ui: {
@@ -348,7 +371,8 @@ const translations: Record<Language, Translations> = {
       record: 'Start recording',
       pause: 'Pause',
       resume: 'Resume',
-      stop: 'Stop',
+      stop: 'Stop recording and finish session',
+      interrupt: 'Interrupt AI speech',
       sessions: 'Sessions',
       mute: 'Mute',
       unmute: 'Unmute',
@@ -427,6 +451,15 @@ const translations: Record<Language, Translations> = {
       downloading: 'Downloading...',
       downloadFailed: 'Download failed',
       noAudioFiles: 'No audio files available',
+    },
+    sessionManagement: {
+      stoppingSesssion: 'Stopping session...',
+      sessionStopped: 'Session stopped',
+      failedToStopSession: 'Failed to stop session',
+      aiInterrupted: 'AI interrupted',
+      reconnecting: 'Reconnecting...',
+      reconnectFailed: 'Reconnection failed',
+      maxReconnectAttempts: 'Maximum reconnection attempts reached',
     },
   },
 };

@@ -17,7 +17,7 @@ import { Modal } from '../ui/Modal';
 import { TopBar } from '../components/TopBar';
 
 export default function HomePage() {
-  const { status, transcriptMessages, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
+  const { status, transcriptMessages, remoteAudioStream, isAiSpeaking, connect, disconnect, interrupt } = useRealtimeConnection();
   const { isRecording, paused, volumeLevels, muteState, startRecording, stopRecording, pauseRecording, resumeRecording, setMute } = useDualTrackRecording();
   const { getSessionDetails } = useSessionRecovery();
 
@@ -61,8 +61,31 @@ export default function HomePage() {
   };
 
   const handleStopRecording = async () => {
-    await stopRecording();
-    setCurrentSessionId(null);
+    try {
+      // Stop the recording first
+      await stopRecording();
+
+      // If we have a session ID, mark it as finished
+      if (currentSessionId) {
+        const response = await fetch(`http://localhost:4201/api/session/${currentSessionId}/finish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          console.error('Failed to finish session:', response.status);
+          // Don't throw error - recording was stopped successfully
+        } else {
+          console.log('Session marked as completed');
+        }
+      }
+
+      setCurrentSessionId(null);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      // Still clear session ID even if there was an error
+      setCurrentSessionId(null);
+    }
   };
 
   const handleResumeSession = async (sessionId: string) => {
@@ -95,6 +118,12 @@ export default function HomePage() {
     if (status === 'connected') disconnect();
   };
 
+  const handleInterrupt = () => {
+    if (isAiSpeaking && status === 'connected') {
+      interrupt();
+    }
+  };
+
   return (
     <div className="min-h-screen p-6 md:p-8">
       <div className="mx-auto max-w-7xl mb-6">
@@ -102,10 +131,12 @@ export default function HomePage() {
           status={status}
           isRecording={isRecording}
           paused={paused}
+          isAiSpeaking={isAiSpeaking}
           onRecord={handleStartRecording}
           onPause={pauseRecording}
           onResume={resumeRecording}
           onStop={handleStopRecording}
+          onInterrupt={handleInterrupt}
           onToggleSettings={() => setSettingsOpen(true)}
           onToggleSessions={() => setShowSessions((v) => !v)}
           onConnect={handleConnect}

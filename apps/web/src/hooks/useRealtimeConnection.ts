@@ -20,8 +20,10 @@ interface RealtimeConnectionState {
   events: ConnectionEvent[];
   transcriptMessages: TranscriptMessage[];
   remoteAudioStream: MediaStream | null;
+  isAiSpeaking: boolean;
   connect: (settings?: any) => Promise<void>;
   disconnect: () => void;
+  interrupt: () => void;
 }
 
 export function useRealtimeConnection(): RealtimeConnectionState {
@@ -29,10 +31,13 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   const [events, setEvents] = useState<ConnectionEvent[]>([]);
   const [transcriptMessages, setTranscriptMessages] = useState<TranscriptMessage[]>([]);
   const [remoteAudioStream, setRemoteAudioStream] = useState<MediaStream | null>(null);
-  
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 2;
 
   const addEvent = useCallback((status: ConnectionStatus, message?: string) => {
     const event: ConnectionEvent = {
@@ -79,12 +84,34 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     
     setRemoteAudioStream(null);
     setTranscriptMessages([]);
+    setIsAiSpeaking(false);
   }, []);
 
-  const connect = useCallback(async (settings?: any) => {
-    if (status === 'connecting' || status === 'connected') {
+  const interrupt = useCallback(() => {
+    if (!dataChannelRef.current || status !== 'connected') {
       return;
     }
+
+    try {
+      // Send interrupt command to OpenAI Realtime API
+      const interruptCommand = {
+        type: 'response.cancel'
+      };
+
+      dataChannelRef.current.send(JSON.stringify(interruptCommand));
+      setIsAiSpeaking(false);
+      addEvent('connected', 'AI speech interrupted');
+
+      // Log interrupt to transcript
+      addTranscriptMessage('ai', '[INTERRUPTED]', { type: 'interrupt', timestamp: Date.now() });
+    } catch (error) {
+      console.error('Failed to send interrupt:', error);
+    }
+  }, [status, addEvent, addTranscriptMessage]);
+
+  const attemptConnect = useCallback(async (settings?: any): Promise<void> => {
+    // Reset AI speaking state on reconnect
+    setIsAiSpeaking(false);
 
     try {
       addEvent('connecting', 'Fetching session token...');
@@ -213,13 +240,27 @@ export function useRealtimeConnection(): RealtimeConnectionState {
             }
           }
           
+          // Handle AI response state changes
+          if (data.type === 'response.created') {
+            setIsAiSpeaking(true);
+          }
+
+          if (data.type === 'response.done') {
+            setIsAiSpeaking(false);
+          }
+
+          // Handle response cancellation (interrupt)
+          if (data.type === 'response.cancelled') {
+            setIsAiSpeaking(false);
+          }
+
           // Handle transcript events for AI response
           if (data.type === 'response.audio_transcript.delta') {
             if (data.delta) {
               addTranscriptMessage('ai', data.delta, data);
             }
           }
-          
+
           // Handle full AI response transcript
           if (data.type === 'response.audio_transcript.done') {
             if (data.transcript) {
@@ -278,8 +319,44 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       console.error('Connection error:', error);
       addEvent('error', error instanceof Error ? error.message : 'Unknown error');
       cleanup();
+      throw error; // Re-throw for reconnect logic
     }
   }, [status, addEvent, cleanup]);
+
+  const connect = useCallback(async (settings?: any) => {
+    if (status === 'connecting' || status === 'connected') {
+      return;
+    }
+
+    reconnectAttemptsRef.current = 0;
+
+    const tryConnect = async (): Promise<void> => {
+      try {
+        await attemptConnect(settings);
+        reconnectAttemptsRef.current = 0; // Reset on successful connection
+      } catch (error) {
+        reconnectAttemptsRef.current++;
+
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const delay = Math.pow(2, reconnectAttemptsRef.current - 1) * 1000; // Exponential backoff: 1s, 2s
+          addEvent('connecting', `Reconnecting in ${delay}ms... (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+
+          setTimeout(async () => {
+            try {
+              await tryConnect();
+            } catch (retryError) {
+              // Final failure will be handled below
+            }
+          }, delay);
+        } else {
+          addEvent('error', `Maximum reconnection attempts reached (${maxReconnectAttempts})`);
+        }
+        throw error;
+      }
+    };
+
+    await tryConnect();
+  }, [status, attemptConnect, addEvent]);
 
   const disconnect = useCallback(() => {
     addEvent('disconnected', 'Disconnecting...');
@@ -321,7 +398,9 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     events,
     transcriptMessages,
     remoteAudioStream,
+    isAiSpeaking,
     connect,
-    disconnect
+    disconnect,
+    interrupt
   };
 }
