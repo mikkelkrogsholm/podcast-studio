@@ -3,7 +3,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface TranscriptMessage {
   id?: string;
-  speaker: 'mikkel' | 'freja';
+  speaker: 'human' | 'ai';
   text: string;
   ts_ms: number;
   raw_json?: Record<string, any>;
@@ -34,25 +34,18 @@ export function Transcript({ messages }: TranscriptProps) {
     });
   };
 
-  const getSpeakerDisplayName = (speaker: 'mikkel' | 'freja') => {
-    return speaker === 'mikkel' ? t.transcript.mikkel : t.transcript.freja;
+  const getSpeakerDisplayName = (speaker: 'human' | 'ai') => {
+    return speaker === 'human' ? t.transcript.human : t.transcript.ai;
   };
 
   return (
-    <div 
-      data-testid="transcript-panel"
-      className="h-96 border rounded-lg bg-white shadow-sm"
-    >
-      <div className="p-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-800">{t.transcript.title}</h3>
+    <div data-testid="transcript-panel" className="h-96">
+      <div className="p-4 border-b border-ui bg-elevated rounded-t-xl">
+        <h3 className="text-lg font-semibold text-ink">{t.transcript.title}</h3>
       </div>
-      
-      <div 
-        ref={scrollRef}
-        className="h-80 overflow-y-auto p-4 space-y-3"
-      >
+      <div ref={scrollRef} className="h-80 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 mt-8">
+          <div className="text-center text-ink-muted mt-8">
             <p>{t.transcript.willAppearHere}</p>
             <p className="text-sm mt-2">{t.transcript.startSpeaking}</p>
           </div>
@@ -63,29 +56,29 @@ export function Transcript({ messages }: TranscriptProps) {
               data-testid="transcript-message"
               data-speaker={message.speaker}
               data-timestamp={message.ts_ms}
-              className={`flex flex-col space-y-1 p-3 rounded-lg ${
-                message.speaker === 'mikkel' 
-                  ? 'bg-blue-50 border-l-4 border-blue-400' 
-                  : 'bg-green-50 border-l-4 border-green-400'
+              className={`flex flex-col space-y-1 p-3 rounded-xl ${
+                message.speaker === 'human' 
+                  ? 'bg-white/90 border-l-4 border-[var(--accent)]' 
+                  : 'bg-elevated border-l-4 border-green-400'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span 
                   data-testid="speaker-label"
                   className={`speaker-label font-medium text-sm ${
-                    message.speaker === 'mikkel' ? 'text-blue-700' : 'text-green-700'
+                    message.speaker === 'human' ? 'text-ink' : 'text-green-700'
                   }`}
                 >
                   {getSpeakerDisplayName(message.speaker)}
                 </span>
                 <span 
                   data-testid="message-timestamp"
-                  className="timestamp text-xs text-gray-500"
+                  className="timestamp text-xs text-ink-muted"
                 >
                   {formatTimestamp(message.ts_ms)}
                 </span>
               </div>
-              <div className="text-gray-800 leading-relaxed">
+              <div className="text-ink leading-relaxed">
                 {message.text}
               </div>
             </div>

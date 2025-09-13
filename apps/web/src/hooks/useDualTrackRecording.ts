@@ -4,18 +4,19 @@ import { useKeepalive } from './useKeepalive';
 type RecordingStatus = 'idle' | 'requesting-permission' | 'recording' | 'stopping' | 'error';
 
 interface VolumeLevel {
-  mikkel: number;
-  freja: number;
+  human: number;
+  ai: number;
 }
 
 interface MuteState {
-  mikkel: boolean;
-  freja: boolean;
+  human: boolean;
+  ai: boolean;
 }
 
 interface DualTrackRecordingState {
   status: RecordingStatus;
   isRecording: boolean;
+  paused: boolean;
   error: string | null;
   sessionId: string | null;
   recordedDuration: number;
@@ -23,7 +24,9 @@ interface DualTrackRecordingState {
   muteState: MuteState;
   startRecording: (sessionId: string, remoteAudioStream?: MediaStream | null) => Promise<void>;
   stopRecording: () => Promise<void>;
-  setMute: (track: 'mikkel' | 'freja', muted: boolean) => void;
+  pauseRecording: () => void;
+  resumeRecording: () => void;
+  setMute: (track: 'human' | 'ai', muted: boolean) => void;
 }
 
 export function useDualTrackRecording(): DualTrackRecordingState {
@@ -31,8 +34,10 @@ export function useDualTrackRecording(): DualTrackRecordingState {
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordedDuration, setRecordedDuration] = useState(0);
-  const [volumeLevels, setVolumeLevels] = useState<VolumeLevel>({ mikkel: 0, freja: 0 });
-  const [muteState, setMuteState] = useState<MuteState>({ mikkel: false, freja: false });
+  const [volumeLevels, setVolumeLevels] = useState<VolumeLevel>({ human: 0, ai: 0 });
+  const [muteState, setMuteState] = useState<MuteState>({ human: false, ai: false });
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
   
   // Keepalive functionality
   const { startKeepalive, stopKeepalive } = useKeepalive();
@@ -54,8 +59,9 @@ export function useDualTrackRecording(): DualTrackRecordingState {
   const volumeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Upload audio chunk to backend
-  const uploadChunk = useCallback(async (chunk: Blob, sessionId: string, speaker: 'mikkel' | 'freja') => {
+  const uploadChunk = useCallback(async (chunk: Blob, sessionId: string, speaker: 'human' | 'ai') => {
     try {
+      if (pausedRef.current) return; // Drop chunks while paused
       const arrayBuffer = await chunk.arrayBuffer();
       
       const response = await fetch(`http://localhost:4201/api/audio/${sessionId}/${speaker}`, {
@@ -100,8 +106,8 @@ export function useDualTrackRecording(): DualTrackRecordingState {
     const frejaLevel = frejaAnalyserRef.current ? calculateVolumeLevel(frejaAnalyserRef.current) : 0;
     
     setVolumeLevels({
-      mikkel: muteState.mikkel ? 0 : mikkelLevel,
-      freja: muteState.freja ? 0 : frejaLevel
+      human: muteState.human ? 0 : mikkelLevel,
+      ai: muteState.ai ? 0 : frejaLevel
     });
   }, [calculateVolumeLevel, muteState]);
 
@@ -113,7 +119,7 @@ export function useDualTrackRecording(): DualTrackRecordingState {
   }, []);
 
   // Set mute state for individual tracks
-  const setMute = useCallback((track: 'mikkel' | 'freja', muted: boolean) => {
+  const setMute = useCallback((track: 'human' | 'ai', muted: boolean) => {
     setMuteState(prev => ({
       ...prev,
       [track]: muted
@@ -146,10 +152,10 @@ export function useDualTrackRecording(): DualTrackRecordingState {
     gainNode.connect(destination);
     
     // Update gain when mute state changes
-    gainNode.gain.value = muteState.freja ? 0 : 1;
+    gainNode.gain.value = muteState.ai ? 0 : 1;
     
     return destination.stream;
-  }, [muteState.freja]);
+  }, [muteState.ai]);
 
   // Setup Web Audio API for Mikkel track recording
   const setupMikkelAudioRecording = useCallback((micStream: MediaStream): MediaStream => {
@@ -177,10 +183,10 @@ export function useDualTrackRecording(): DualTrackRecordingState {
     gainNode.connect(destination);
     
     // Update gain when mute state changes
-    gainNode.gain.value = muteState.mikkel ? 0 : 1;
+    gainNode.gain.value = muteState.human ? 0 : 1;
     
     return destination.stream;
-  }, [muteState.mikkel]);
+  }, [muteState.human]);
 
   const startRecording = useCallback(async (sessionId: string, remoteAudioStream?: MediaStream | null) => {
     if (status === 'recording') {
@@ -230,7 +236,7 @@ export function useDualTrackRecording(): DualTrackRecordingState {
       mikkelRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           try {
-            await uploadChunk(event.data, sessionId, 'mikkel');
+            await uploadChunk(event.data, sessionId, 'human');
           } catch (error) {
             console.error('Failed to upload Mikkel chunk:', error);
           }
@@ -268,7 +274,7 @@ export function useDualTrackRecording(): DualTrackRecordingState {
         frejaRecorder.ondataavailable = async (event) => {
           if (event.data.size > 0) {
             try {
-              await uploadChunk(event.data, sessionId, 'freja');
+              await uploadChunk(event.data, sessionId, 'ai');
             } catch (error) {
               console.error('Failed to upload Freja chunk:', error);
             }
@@ -362,8 +368,8 @@ export function useDualTrackRecording(): DualTrackRecordingState {
         try {
           // Finalize both audio files
           await Promise.all([
-            fetch(`http://localhost:4201/api/audio/${sessionId}/mikkel/finalize`, { method: 'POST' }),
-            fetch(`http://localhost:4201/api/audio/${sessionId}/freja/finalize`, { method: 'POST' })
+            fetch(`http://localhost:4201/api/audio/${sessionId}/human/finalize`, { method: 'POST' }),
+            fetch(`http://localhost:4201/api/audio/${sessionId}/ai/finalize`, { method: 'POST' })
           ]);
 
           // Mark session as completed
@@ -381,7 +387,7 @@ export function useDualTrackRecording(): DualTrackRecordingState {
 
       setStatus('idle');
       setSessionId(null);
-      setVolumeLevels({ mikkel: 0, freja: 0 });
+      setVolumeLevels({ human: 0, ai: 0 });
 
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -432,9 +438,23 @@ export function useDualTrackRecording(): DualTrackRecordingState {
     };
   }, []);
 
+  // Keep paused ref in sync
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  const pauseRecording = useCallback(() => {
+    if (status === 'recording') setPaused(true);
+  }, [status]);
+
+  const resumeRecording = useCallback(() => {
+    if (status === 'recording') setPaused(false);
+  }, [status]);
+
   return {
     status,
     isRecording: status === 'recording',
+    paused,
     error,
     sessionId,
     recordedDuration,
@@ -442,6 +462,8 @@ export function useDualTrackRecording(): DualTrackRecordingState {
     muteState,
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
     setMute,
   };
 }

@@ -3,6 +3,7 @@
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { downloadMikkelAudio, downloadFrejaAudio, downloadTranscriptJson, downloadTranscriptMarkdown } from '../utils/download';
 
 interface SessionHistoryProps {
   onResumeSession?: (sessionId: string) => void;
@@ -24,6 +25,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [downloadStates, setDownloadStates] = useState<Record<string, string>>({});
   const { t } = useLanguage();
 
   const formatDate = (timestamp: number) => {
@@ -101,13 +103,33 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
     }
   };
 
+  const handleDownload = async (sessionId: string, type: string, downloadFn: any) => {
+    const stateKey = `${sessionId}-${type}`;
+
+    try {
+      await downloadFn({
+        sessionId,
+        onStart: () => setDownloadStates(prev => ({ ...prev, [stateKey]: t.download.downloading })),
+        onSuccess: () => setDownloadStates(prev => ({ ...prev, [stateKey]: '' })),
+        onError: (error: string) => {
+          console.error(`Download failed for ${type}:`, error);
+          setDownloadStates(prev => ({ ...prev, [stateKey]: t.download.downloadFailed }));
+          setTimeout(() => {
+            setDownloadStates(prev => ({ ...prev, [stateKey]: '' }));
+          }, 3000);
+        }
+      });
+    } catch (err) {
+      console.error('Download error:', err);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="p-6 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">{t.sessionRecovery.sessionHistory}</h2>
+      <div>
         <div className="text-center py-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">{t.sessionRecovery.loadingSessions}</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto"></div>
+          <p className="mt-2 text-ink-muted">{t.sessionRecovery.loadingSessions}</p>
         </div>
       </div>
     );
@@ -115,13 +137,12 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
 
   if (error) {
     return (
-      <div className="p-6 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">{t.sessionRecovery.sessionHistory}</h2>
+      <div>
         <div className="text-center py-4">
           <p className="text-red-600">{t.sessionRecovery.errorLoadingSessions}: {error}</p>
           <button 
             onClick={fetchSessions}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="mt-2 px-4 py-2 rounded-xl bg-[var(--accent)] text-white hover:brightness-110"
           >
             {t.sessionRecovery.retry}
           </button>
@@ -131,12 +152,11 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   }
 
   return (
-    <div className="p-6 border rounded-lg bg-gray-50">
+    <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">{t.sessionRecovery.sessionHistory}</h2>
         <button 
           onClick={fetchSessions}
-          className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+          className="px-3 py-1 bg-elevated hover:bg-elevated/90 rounded-xl text-sm"
         >
           {t.sessionRecovery.refresh}
         </button>
@@ -144,7 +164,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
 
       {/* Incomplete Sessions Alert */}
       {hasIncompleteSessions && (
-        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
           <h3 className="font-medium text-yellow-800 mb-2">
             ⚠️ {t.sessionRecovery.incompleteSessions} ({incompleteSessions.length})
           </h3>
@@ -153,10 +173,10 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
           </p>
           <div className="space-y-2">
             {incompleteSessions.map(session => (
-              <div key={session.id} className="flex items-center justify-between bg-white p-2 rounded">
+              <div key={session.id} className="flex items-center justify-between bg-white p-2 rounded-xl">
                 <div>
                   <span className="font-medium">{session.title}</span>
-                  <span className="text-xs text-gray-500 ml-2">
+                  <span className="text-xs text-ink-muted ml-2">
                     {formatDate(session.createdAt)}
                   </span>
                 </div>
@@ -164,14 +184,14 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                   {onResumeSession && (
                     <button
                       onClick={() => handleResumeSession(session.id)}
-                      className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded"
+                      className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-xl"
                     >
                       {t.sessionRecovery.resume}
                     </button>
                   )}
                   <button
                     onClick={() => handleFinishSession(session.id)}
-                    className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded"
+                    className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-xl"
                   >
                     {t.sessionRecovery.markComplete}
                   </button>
@@ -188,9 +208,9 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
       ) : (
         <div className="space-y-2">
           {sessions.slice(0, 10).map(session => (
-            <div key={session.id} className="border border-gray-200 rounded-lg bg-white">
+            <div key={session.id} className="border border-ui rounded-xl bg-white">
               <div 
-                className="p-4 cursor-pointer hover:bg-gray-50"
+                className="p-4 cursor-pointer hover:bg-elevated/60 rounded-xl"
                 onClick={() => handleSessionExpand(session.id)}
               >
                 <div className="flex items-center justify-between">
@@ -206,7 +226,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-sm text-ink-muted mt-1">
                       {t.sessionRecovery.created}: {formatDate(session.createdAt)}
                       {session.completedAt && (
                         <span className="ml-4">{t.sessionRecovery.completed}: {formatDate(session.completedAt)}</span>
@@ -224,10 +244,10 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
 
               {/* Expanded Details */}
               {expandedSession === session.id && (
-                <div className="border-t border-gray-200 p-4 bg-gray-50">
+                <div className="border-t border-ui p-4 bg-elevated rounded-b-xl">
                   {loadingDetails ? (
                     <div className="text-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mx-auto"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--accent)] mx-auto"></div>
                     </div>
                   ) : sessionDetails ? (
                     <div>
@@ -240,18 +260,74 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                           </div>
                         ))}
                       </div>
-                      
+
+                      {/* Download Section for Completed Sessions */}
+                      {session.status === 'completed' && sessionDetails.audioFiles && sessionDetails.audioFiles.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <h4 className="font-medium mb-3">{t.download.title}:</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {/* Audio Downloads */}
+                            {sessionDetails.audioFiles?.find((f: any) => f.speaker === 'mikkel' && f.size > 0) && (
+                              <button
+                                onClick={() => handleDownload(session.id, 'mikkel', downloadMikkelAudio)}
+                                disabled={downloadStates[`${session.id}-mikkel`] === t.download.downloading}
+                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm rounded flex items-center justify-center"
+                              >
+                                {downloadStates[`${session.id}-mikkel`] || t.download.downloadMikkelAudio}
+                              </button>
+                            )}
+
+                            {sessionDetails.audioFiles?.find((f: any) => f.speaker === 'freja' && f.size > 0) && (
+                              <button
+                                onClick={() => handleDownload(session.id, 'freja', downloadFrejaAudio)}
+                                disabled={downloadStates[`${session.id}-freja`] === t.download.downloading}
+                                className="px-3 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white text-sm rounded flex items-center justify-center"
+                              >
+                                {downloadStates[`${session.id}-freja`] || t.download.downloadFrejaAudio}
+                              </button>
+                            )}
+
+                            {/* Transcript Downloads */}
+                            <button
+                              onClick={() => handleDownload(session.id, 'json', downloadTranscriptJson)}
+                              disabled={downloadStates[`${session.id}-json`] === t.download.downloading}
+                              className="px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white text-sm rounded flex items-center justify-center"
+                            >
+                              {downloadStates[`${session.id}-json`] || t.download.downloadTranscriptJson}
+                            </button>
+
+                            <button
+                              onClick={() => handleDownload(session.id, 'markdown', downloadTranscriptMarkdown)}
+                              disabled={downloadStates[`${session.id}-markdown`] === t.download.downloading}
+                              className="px-3 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white text-sm rounded flex items-center justify-center"
+                            >
+                              {downloadStates[`${session.id}-markdown`] || t.download.downloadTranscriptMarkdown}
+                            </button>
+                          </div>
+
+                          {/* Error Messages */}
+                          {Object.entries(downloadStates).some(([key, state]) => key.startsWith(session.id) && state === t.download.downloadFailed) && (
+                            <p className="text-red-600 text-sm mt-2">{t.download.downloadFailed}</p>
+                          )}
+
+                          {/* No audio files message */}
+                          {(!sessionDetails.audioFiles || sessionDetails.audioFiles.length === 0 || sessionDetails.audioFiles.every((f: any) => f.size === 0)) && (
+                            <p className="text-gray-500 text-sm">{t.download.noAudioFiles}</p>
+                          )}
+                        </div>
+                      )}
+
                       {session.status === 'incomplete' && onResumeSession && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="mt-3 pt-3 border-t border-ui">
                           <button
                             onClick={() => handleResumeSession(session.id)}
-                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded mr-2"
+                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-xl mr-2"
                           >
                             {t.sessionRecovery.resumeRecording}
                           </button>
                           <button
                             onClick={() => handleFinishSession(session.id)}
-                            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded"
+                            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-xl"
                           >
                             {t.sessionRecovery.markAsComplete}
                           </button>
@@ -267,7 +343,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
           ))}
           
           {sessions.length > 10 && (
-            <p className="text-center text-gray-500 text-sm mt-4">
+            <p className="text-center text-ink-muted text-sm mt-4">
               {t.sessionRecovery.showingLatest.replace('{total}', sessions.length.toString())}
             </p>
           )}

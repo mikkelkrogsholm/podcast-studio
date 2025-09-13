@@ -5,12 +5,13 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles, messages } from './db/schema.js'
+import { runMigrations } from './db/migrate.js'
 import { eq, and, asc } from 'drizzle-orm'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 // Temporarily define schemas inline until import issue is resolved
 const CreateMessageRequestSchema = z.object({
-  speaker: z.enum(['mikkel', 'freja']),
+  speaker: z.enum(['mikkel', 'freja', 'human', 'ai']),
   text: z.string().min(1),
   ts_ms: z.number().min(0),
   raw_json: z.record(z.any()),
@@ -192,19 +193,19 @@ app.post('/api/session', async (req, res) => {
     await fs.mkdir(sessionsDir, { recursive: true })
     await fs.mkdir(sessionDir, { recursive: true })
 
-    // Create audio file entries for both speakers
+    // Create audio file entries for both speakers (human/ai)
     const mikkelAudioFileId = randomUUID()
     const frejaAudioFileId = randomUUID()
-    const mikkelFilePath = path.join(sessionDir, 'mikkel.wav')
-    const frejaFilePath = path.join(sessionDir, 'freja.wav')
+    const humanFilePath = path.join(sessionDir, 'human.wav')
+    const aiFilePath = path.join(sessionDir, 'ai.wav')
     
     // Insert both audio file records
     await db.insert(audioFiles).values([
       {
         id: mikkelAudioFileId,
         sessionId,
-        speaker: 'mikkel',
-        filePath: mikkelFilePath,
+        speaker: 'human',
+        filePath: humanFilePath,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -213,8 +214,8 @@ app.post('/api/session', async (req, res) => {
       {
         id: frejaAudioFileId,
         sessionId,
-        speaker: 'freja',
-        filePath: frejaFilePath,
+        speaker: 'ai',
+        filePath: aiFilePath,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -236,14 +237,16 @@ app.post('/api/session', async (req, res) => {
 // Upload audio chunk (raw binary data)
 app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limit: '10mb' }), async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    // Normalize speakers to human/ai
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
+    }
     
     if (!req.body || !Buffer.isBuffer(req.body)) {
       return res.status(400).json({ error: 'No audio data provided' })
-    }
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
     }
 
     // Verify session exists
@@ -253,7 +256,7 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
     }
 
     const sessionDir = path.join(process.cwd(), 'sessions', sessionId)
-    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+    const audioFilePath = await resolveAudioPath(sessionDir, canonical)
 
     // Append chunk to file
     await fs.appendFile(audioFilePath, req.body)
@@ -262,6 +265,7 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
     const stats = await fs.stat(audioFilePath)
     const now = Date.now()
     
+    // Update both canonical or legacy record
     await db.update(audioFiles)
       .set({ 
         size: stats.size,
@@ -270,7 +274,17 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
+        )
+      )
+    // Fallback update for legacy rows
+    const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+    await db.update(audioFiles)
+      .set({ size: stats.size, updatedAt: now })
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, legacy)
         )
       )
 
@@ -289,10 +303,11 @@ app.post('/api/audio/:sessionId/:speaker', express.raw({ type: 'audio/wav', limi
 // Finalize audio file - write proper WAV header
 app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
     }
 
     // Verify session exists
@@ -302,7 +317,7 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
     }
 
     const sessionDir = path.join(process.cwd(), 'sessions', sessionId)
-    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+    const audioFilePath = await resolveAudioPath(sessionDir, canonical)
 
     // Read the current raw audio data
     let audioData: Buffer
@@ -330,7 +345,16 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
+        )
+      )
+    const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+    await db.update(audioFiles)
+      .set({ size: finalWavData.length, updatedAt: now })
+      .where(
+        and(
+          eq(audioFiles.sessionId, sessionId),
+          eq(audioFiles.speaker, legacy)
         )
       )
 
@@ -349,10 +373,11 @@ app.post('/api/audio/:sessionId/:speaker/finalize', async (req, res) => {
 // Get audio file info
 app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
   try {
-    const { sessionId, speaker } = req.params
-
-    if (speaker !== 'mikkel' && speaker !== 'freja') {
-      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    const { sessionId } = req.params
+    let { speaker } = req.params as { sessionId: string; speaker: string }
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
     }
 
     // Get audio file from database
@@ -361,7 +386,7 @@ app.get('/api/audio/:sessionId/:speaker/info', async (req, res) => {
       .where(
         and(
           eq(audioFiles.sessionId, sessionId),
-          eq(audioFiles.speaker, speaker)
+          eq(audioFiles.speaker, canonical)
         )
       )
       .limit(1)
@@ -601,6 +626,28 @@ app.get('/api/sessions', async (_req, res) => {
   }
 })
 
+// helper to normalize/alias speaker labels
+function normalizeSpeaker(s: string): 'human' | 'ai' {
+  if (s === 'mikkel') return 'human'
+  if (s === 'freja') return 'ai'
+  return (s === 'human' || s === 'ai') ? s : 'human'
+}
+
+async function resolveAudioPath(sessionDir: string, canonical: 'human' | 'ai'): Promise<string> {
+  const canonicalPath = path.join(sessionDir, `${canonical}.wav`)
+  const legacy = canonical === 'human' ? 'mikkel' : 'freja'
+  const legacyPath = path.join(sessionDir, `${legacy}.wav`)
+  try {
+    await fs.stat(canonicalPath)
+    return canonicalPath
+  } catch {}
+  try {
+    await fs.stat(legacyPath)
+    return legacyPath
+  } catch {}
+  return canonicalPath
+}
+
 // GET /api/session/:id - Get session details including audio files
 app.get('/api/session/:id', async (req, res) => {
   try {
@@ -630,7 +677,8 @@ app.get('/api/session/:id', async (req, res) => {
 
     const audioFilesInfo = audioFileResults.map(audioFile => ({
       id: audioFile.id,
-      speaker: audioFile.speaker,
+      speaker: normalizeSpeaker(audioFile.speaker),
+      // If legacy file path, present canonical path for UI, but keep compatibility
       filePath: audioFile.filePath,
       size: audioFile.size || 0,
       duration: audioFile.duration,
@@ -689,7 +737,8 @@ app.post('/api/session/:id/message', async (req, res) => {
       })
     }
 
-    const { speaker, text, ts_ms, raw_json } = bodyResult.data
+    let { speaker, text, ts_ms, raw_json } = bodyResult.data
+    const canonical = normalizeSpeaker(speaker)
 
     // Check if session exists
     const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
@@ -702,7 +751,7 @@ app.post('/api/session/:id/message', async (req, res) => {
     // Insert message
     const result = await db.insert(messages).values({
       sessionId,
-      speaker,
+      speaker: canonical,
       text,
       tsMs: ts_ms,
       rawJson: JSON.stringify(raw_json),
@@ -718,7 +767,7 @@ app.post('/api/session/:id/message', async (req, res) => {
     const response = {
       id: insertedMessage.id.toString(),
       sessionId: insertedMessage.sessionId,
-      speaker: insertedMessage.speaker,
+      speaker: normalizeSpeaker(insertedMessage.speaker),
       text: insertedMessage.text,
       ts_ms: insertedMessage.tsMs,
       raw_json: JSON.parse(insertedMessage.rawJson),
@@ -775,9 +824,285 @@ app.get('/api/session/:id/messages', async (req, res) => {
   }
 })
 
+// GET /api/session/:id/transcript.json - Export transcript as JSON
+app.get('/api/session/:id/transcript.json', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for transcript export
+    const transcriptMessages = messageResults.map(msg => ({
+      speaker: msg.speaker,
+      text: msg.text,
+      timestamp: msg.tsMs,
+    }))
+
+    // Set correct content-type header
+    res.setHeader('Content-Type', 'application/json')
+
+    return res.json({
+      sessionId,
+      messages: transcriptMessages
+    })
+
+  } catch (error) {
+    console.error('Failed to export transcript as JSON:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as JSON' })
+  }
+})
+
+// GET /api/session/:id/transcript.md - Export transcript as Markdown
+app.get('/api/session/:id/transcript.md', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(asc(messages.tsMs))
+
+    // Generate markdown content
+    let markdownContent = `# ${session.title || 'Podcast Session'}\n\n`
+
+    if (messageResults.length === 0) {
+      markdownContent += '_No messages in this session_\n'
+    } else {
+      // Format each message with timestamp and speaker
+      for (const msg of messageResults) {
+        const timestamp = new Date(msg.tsMs).toISOString().substr(11, 12) // Extract time portion HH:MM:SS.mmm
+        markdownContent += `**[${timestamp}] ${msg.speaker}:** ${msg.text}\n\n`
+      }
+    }
+
+    // Set correct content-type header
+    res.setHeader('Content-Type', 'text/markdown')
+
+    return res.send(markdownContent)
+
+  } catch (error) {
+    console.error('Failed to export transcript as Markdown:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as Markdown' })
+  }
+})
+
+// Step 9: File Download and Export endpoints
+
+// GET /api/session/:id/file/:speaker - Stream audio file
+app.get('/api/session/:id/file/:speaker', async (req, res) => {
+  try {
+    const { id, speaker } = req.params
+
+    // Validate speaker parameter
+    if (speaker !== 'mikkel' && speaker !== 'freja') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "mikkel" or "freja"' })
+    }
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Check if audio file exists in database
+    const audioFileEntry = await db.select()
+      .from(audioFiles)
+      .where(
+        and(
+          eq(audioFiles.sessionId, id),
+          eq(audioFiles.speaker, speaker)
+        )
+      )
+      .limit(1)
+
+    if (audioFileEntry.length === 0) {
+      return res.status(404).json({ error: 'Audio file not found' })
+    }
+
+    // Build file path
+    const sessionDir = path.join(process.cwd(), 'sessions', id)
+    const audioFilePath = path.join(sessionDir, `${speaker}.wav`)
+
+    // Check if file exists on filesystem
+    try {
+      await fs.access(audioFilePath)
+    } catch (error) {
+      return res.status(404).json({ error: 'Audio file not found' })
+    }
+
+    // Set headers for audio streaming
+    res.setHeader('Content-Type', 'audio/wav')
+    res.setHeader('Content-Disposition', `attachment; filename="${speaker}.wav"`)
+
+    // Stream the file
+    const fileBuffer = await fs.readFile(audioFilePath)
+    return res.send(fileBuffer)
+
+  } catch (error) {
+    console.error('Failed to stream audio file:', error)
+    return res.status(500).json({ error: 'Failed to stream audio file' })
+  }
+})
+
+// GET /api/session/:id/transcript.json - Export transcript as JSON
+app.get('/api/session/:id/transcript.json', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for JSON export
+    const formattedMessages = messageResults.map(msg => ({
+      id: msg.id.toString(),
+      sessionId: msg.sessionId,
+      speaker: msg.speaker,
+      text: msg.text,
+      ts_ms: msg.tsMs,
+      raw_json: JSON.parse(msg.rawJson),
+      createdAt: msg.createdAt,
+    }))
+
+    // Set JSON content type without charset to match test expectations
+    res.setHeader('Content-Type', 'application/json')
+
+    // Return transcript data as JSON string to avoid Express adding charset
+    return res.send(JSON.stringify({
+      sessionId: id,
+      title: session?.title,
+      messages: formattedMessages,
+      exportedAt: Date.now()
+    }))
+
+  } catch (error) {
+    console.error('Failed to export transcript as JSON:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as JSON' })
+  }
+})
+
+// GET /api/session/:id/transcript.md - Export transcript as Markdown
+app.get('/api/session/:id/transcript.md', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse({ id })
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    // Generate Markdown content
+    let markdownContent = `# ${session?.title || 'Podcast Transcript'}\n\n`
+    markdownContent += `**Session ID:** ${id}\n`
+    markdownContent += `**Exported:** ${new Date().toISOString()}\n\n`
+
+    if (messageResults.length === 0) {
+      markdownContent += '*No messages in this session.*\n'
+    } else {
+      markdownContent += `## Transcript\n\n`
+
+      for (const msg of messageResults) {
+        // Convert timestamp to readable format
+        const timestamp = new Date(msg.tsMs).toISOString()
+        markdownContent += `**${msg.speaker}** *(${timestamp})*: ${msg.text}\n\n`
+      }
+    }
+
+    // Set Markdown content type without charset to match test expectations
+    res.setHeader('Content-Type', 'text/markdown')
+    res.setHeader('Content-Disposition', `attachment; filename="transcript-${id}.md"`)
+
+    // Return markdown content
+    return res.send(markdownContent)
+
+  } catch (error) {
+    console.error('Failed to export transcript as Markdown:', error)
+    return res.status(500).json({ error: 'Failed to export transcript as Markdown' })
+  }
+})
+
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(PORT, () => {
-    console.log(`API server running on http://localhost:${PORT}`)
-  })
+  // Run database migrations before starting server
+  runMigrations()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`API server running on http://localhost:${PORT}`)
+      })
+    })
+    .catch((error) => {
+      console.error('Failed to run database migrations:', error)
+      process.exit(1)
+    })
 }

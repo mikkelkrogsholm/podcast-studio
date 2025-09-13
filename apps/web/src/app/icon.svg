@@ -1,0 +1,19 @@
+<!-- Favicon based on Lucide "Mic" icon -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Nordic canvas -->
+  <rect width="64" height="64" rx="14" fill="#ECECEA"/>
+  <!-- Accent tile -->
+  <rect x="8" y="8" width="48" height="48" rx="12" fill="#3B5566"/>
+  <!-- Mic (Lucide style strokes) -->
+  <g transform="translate(20,16)" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Capsule -->
+    <path d="M12 2a6 6 0 0 1 6 6v8a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/>
+    <!-- Ears (envelope) -->
+    <path d="M22 14v2a10 10 0 0 1-20 0v-2"/>
+    <!-- Stem -->
+    <path d="M12 26v8"/>
+    <path d="M6 34h12"/>
+  </g>
+  <title>Podcast Studio</title>
+  <desc>Favicon using a Lucide Mic style</desc>
+</svg>

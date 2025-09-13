@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LanguageProvider } from '../contexts/LanguageContext';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Podcast Studio',
@@ -13,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="da">
-      <body>
+      <body className="bg-canvas text-ink antialiased">
         <LanguageProvider>
           {children}
         </LanguageProvider>
