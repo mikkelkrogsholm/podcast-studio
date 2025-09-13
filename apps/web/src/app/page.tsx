@@ -166,7 +166,11 @@ export default function HomePage() {
       </div>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t.settings.title}>
-        <SettingsForm onSettingsChange={setCurrentSettings} disabled={isRecording} />
+        <SettingsForm
+          key={settingsOpen ? 'open' : 'closed'}
+          onSettingsChange={setCurrentSettings}
+          disabled={isRecording}
+        />
       </Modal>
     </div>
   );

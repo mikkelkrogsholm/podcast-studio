@@ -29,12 +29,9 @@ interface ValidationErrors {
 
 export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFormProps) {
   const { t } = useLanguage();
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [errors, setErrors] = useState<ValidationErrors>({});
-  const [showSaved, setShowSaved] = useState(false);
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
+  // Initialize settings from localStorage using lazy initialization
+  const [settings, setSettings] = useState<Settings>(() => {
     const savedSettings = localStorage.getItem('podcast-studio-settings');
     if (savedSettings) {
       try {
@@ -43,20 +40,22 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
         const mergedSettings = {
           ...defaultSettings,
           ...parsed,
-          // Ensure persona and context prompts are strings
-          persona_prompt: parsed.persona_prompt || '',
-          context_prompt: parsed.context_prompt || ''
+          // Ensure persona and context prompts are strings (use nullish coalescing)
+          persona_prompt: parsed.persona_prompt ?? '',
+          context_prompt: parsed.context_prompt ?? ''
         };
         const validatedSettings = SettingsSchema.parse(mergedSettings);
-        setSettings(validatedSettings);
+        return validatedSettings;
       } catch (error) {
         console.warn('Invalid saved settings, using defaults', error);
-        setSettings(defaultSettings);
+        return defaultSettings;
       }
-    } else {
-      setSettings(defaultSettings);
     }
-  }, []); // Remove onSettingsChange dependency
+    return defaultSettings;
+  });
+
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [showSaved, setShowSaved] = useState(false);
   
   // Notify parent when settings change (separate effect)
   useEffect(() => {
