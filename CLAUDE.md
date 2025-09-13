@@ -126,17 +126,34 @@ Build precise API endpoints with validation:
 
 Additional documentation is available in the `docs/` folder:
 
+### Core Technical Guides
 - **[testing-guide.md](docs/testing-guide.md)** - Complete guide for running API and E2E tests, including troubleshooting
 - **[webrtc-handshake.md](docs/webrtc-handshake.md)** - WebRTC connection implementation details and security model
-- **[branch-summary.md](docs/branch-summary.md)** - Feature branch implementation summary and progress tracking
-- **[internationalization.md](docs/internationalization.md)** - i18n implementation guide for Danish/English support
 - **[openai-integration.md](docs/openai-integration.md)** - OpenAI Realtime API setup and connection guide
+- **[branch-summary.md](docs/branch-summary.md)** - Feature branch implementation summary and progress tracking
+
+### UI/UX and Design
+- **[internationalization.md](docs/internationalization.md)** - i18n implementation guide for Danish/English support
+  - Danish and English language support
+  - Translation management and locale switching
+  - UI text requirements for bilingual interface
+
+### Implementation Steps
 - **[step-03-implementation.md](docs/step-03-implementation.md)** - Technical details for Step 3 audio recording implementation
 - **[step-04-dual-track-recording.md](docs/step-04-dual-track-recording.md)** - Dual-track voice recording with OpenAI Realtime API
 - **[step-05-auto-save-recovery.md](docs/step-05-auto-save-recovery.md)** - Auto-save functionality and crash recovery mechanisms
 - **[step-06-transcript-persistence.md](docs/step-06-transcript-persistence.md)** - Live transcript display and database persistence
 - **[step-07-playground-controls.md](docs/step-07-playground-controls.md)** - Playground-style controls for model, voice, and temperature settings
 - **[step-08-persona-context.md](docs/step-08-persona-context.md)** - Persona and context prompts for AI customization and conversation topics
+
+### UI Components and Styling
+The application uses a modern, minimalist design with:
+- **Tailwind CSS** for utility-first styling
+- **Next.js App Router** for routing and layouts
+- **React Components** with TypeScript for type safety
+- **Dark mode support** via Tailwind's dark: prefix
+- **Responsive design** for desktop and mobile layouts
+- **Accessibility-first** approach with proper ARIA labels and keyboard navigation
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
