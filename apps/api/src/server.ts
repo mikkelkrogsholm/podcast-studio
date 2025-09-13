@@ -5,7 +5,7 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles, messages } from './db/schema.js'
-import { eq, and, lt, asc } from 'drizzle-orm'
+import { eq, and, asc } from 'drizzle-orm'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 // Temporarily define schemas inline until import issue is resolved
@@ -16,19 +16,9 @@ const CreateMessageRequestSchema = z.object({
   raw_json: z.record(z.any()),
 })
 
-const MessageResponseSchema = z.object({
-  id: z.string(),
-  sessionId: z.string(),
-  speaker: z.enum(['mikkel', 'freja']),
-  text: z.string(),
-  ts_ms: z.number(),
-  raw_json: z.record(z.any()),
-  createdAt: z.number(),
-})
+// MessageResponseSchema not needed - using direct response objects
 
-const GetMessagesResponseSchema = z.object({
-  messages: z.array(MessageResponseSchema),
-})
+// GetMessagesResponseSchema not needed - using inline validation
 
 // Load environment variables from .env file in project root
 dotenv.config({ path: path.join(process.cwd(), '../../.env') })
@@ -56,7 +46,7 @@ const sessionParamsSchema = z.object({
 })
 
 // Constants
-const DEFAULT_TIMEOUT_MS = 30000 // 30 seconds
+// Removed unused DEFAULT_TIMEOUT_MS constant
 
 // Health endpoint
 app.get('/health', (_req, res) => {
