@@ -5,6 +5,7 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles, messages } from './db/schema.js'
+import { runMigrations } from './db/migrate.js'
 import { eq, and, asc } from 'drizzle-orm'
 import dotenv from 'dotenv'
 import { z } from 'zod'
@@ -1093,7 +1094,15 @@ app.get('/api/session/:id/transcript.md', async (req, res) => {
 
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(PORT, () => {
-    console.log(`API server running on http://localhost:${PORT}`)
-  })
+  // Run database migrations before starting server
+  runMigrations()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`API server running on http://localhost:${PORT}`)
+      })
+    })
+    .catch((error) => {
+      console.error('Failed to run database migrations:', error)
+      process.exit(1)
+    })
 }
