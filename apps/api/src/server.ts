@@ -4,10 +4,31 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
-import { sessions, audioFiles } from './db/schema.js'
-import { eq, and, lt } from 'drizzle-orm'
+import { sessions, audioFiles, messages } from './db/schema.js'
+import { eq, and, lt, asc } from 'drizzle-orm'
 import dotenv from 'dotenv'
 import { z } from 'zod'
+// Temporarily define schemas inline until import issue is resolved
+const CreateMessageRequestSchema = z.object({
+  speaker: z.enum(['mikkel', 'freja']),
+  text: z.string().min(1),
+  ts_ms: z.number().min(0),
+  raw_json: z.record(z.any()),
+})
+
+const MessageResponseSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  speaker: z.enum(['mikkel', 'freja']),
+  text: z.string(),
+  ts_ms: z.number(),
+  raw_json: z.record(z.any()),
+  createdAt: z.number(),
+})
+
+const GetMessagesResponseSchema = z.object({
+  messages: z.array(MessageResponseSchema),
+})
 
 // Load environment variables from .env file in project root
 dotenv.config({ path: path.join(process.cwd(), '../../.env') })
@@ -560,6 +581,112 @@ app.get('/api/session/:id', async (req, res) => {
   } catch (error) {
     console.error('Failed to get session details:', error)
     return res.status(500).json({ error: 'Failed to get session details' })
+  }
+})
+
+// POST /api/session/:id/message - Insert new message with Zod validation
+app.post('/api/session/:id/message', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Validate message payload
+    const bodyResult = CreateMessageRequestSchema.safeParse(req.body)
+    if (!bodyResult.success) {
+      return res.status(400).json({ 
+        error: 'Invalid message payload', 
+        details: bodyResult.error.errors 
+      })
+    }
+
+    const { speaker, text, ts_ms, raw_json } = bodyResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const now = Date.now()
+
+    // Insert message
+    const result = await db.insert(messages).values({
+      sessionId,
+      speaker,
+      text,
+      tsMs: ts_ms,
+      rawJson: JSON.stringify(raw_json),
+      createdAt: now,
+    }).returning()
+
+    const insertedMessage = result[0]
+    if (!insertedMessage) {
+      return res.status(500).json({ error: 'Failed to insert message' })
+    }
+
+    // Return formatted message response
+    const response = {
+      id: insertedMessage.id.toString(),
+      sessionId: insertedMessage.sessionId,
+      speaker: insertedMessage.speaker,
+      text: insertedMessage.text,
+      ts_ms: insertedMessage.tsMs,
+      raw_json: JSON.parse(insertedMessage.rawJson),
+      createdAt: insertedMessage.createdAt,
+    }
+
+    return res.json(response)
+
+  } catch (error) {
+    console.error('Failed to insert message:', error)
+    return res.status(500).json({ error: 'Failed to insert message' })
+  }
+})
+
+// GET /api/session/:id/messages - Get messages sorted by ts_ms
+app.get('/api/session/:id/messages', async (req, res) => {
+  try {
+    // Validate session ID
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id: sessionId } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get messages sorted by ts_ms
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for response
+    const formattedMessages = messageResults.map(msg => ({
+      id: msg.id.toString(),
+      sessionId: msg.sessionId,
+      speaker: msg.speaker,
+      text: msg.text,
+      ts_ms: msg.tsMs,
+      raw_json: JSON.parse(msg.rawJson),
+      createdAt: msg.createdAt,
+    }))
+
+    return res.json({ messages: formattedMessages })
+
+  } catch (error) {
+    console.error('Failed to get messages:', error)
+    return res.status(500).json({ error: 'Failed to get messages' })
   }
 })
 

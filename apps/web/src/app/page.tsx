@@ -5,11 +5,12 @@ import { useDualTrackRecording } from '../hooks/useDualTrackRecording';
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { DualTrackControls } from '../components/DualTrackControls';
 import { SessionHistory } from '../components/SessionHistory';
+import { Transcript } from '../components/Transcript';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
-  const { status, events, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
+  const { status, events, transcriptMessages, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
   const { 
     status: recordingStatus, 
     isRecording, 
@@ -282,6 +283,19 @@ export default function HomePage() {
           isRecording={isRecording}
           onMuteToggle={setMute}
         />
+      </div>
+      
+      {/* Live Transcript */}
+      <div className="mb-8 p-6 border rounded-lg bg-gray-50">
+        <Transcript messages={transcriptMessages} />
+        {/* Test data - remove when testing is complete */}
+        {process.env.NODE_ENV === 'development' && transcriptMessages.length === 0 && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-sm text-yellow-700">
+              Development: Transcript component is ready. Start recording to see live transcripts.
+            </p>
+          </div>
+        )}
       </div>
       
       {/* Connection Section */}

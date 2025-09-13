@@ -8,9 +8,17 @@ interface ConnectionEvent {
   message?: string;
 }
 
+interface TranscriptMessage {
+  speaker: 'mikkel' | 'freja';
+  text: string;
+  ts_ms: number;
+  raw_json: Record<string, any>;
+}
+
 interface RealtimeConnectionState {
   status: ConnectionStatus;
   events: ConnectionEvent[];
+  transcriptMessages: TranscriptMessage[];
   remoteAudioStream: MediaStream | null;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -19,6 +27,7 @@ interface RealtimeConnectionState {
 export function useRealtimeConnection(): RealtimeConnectionState {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [events, setEvents] = useState<ConnectionEvent[]>([]);
+  const [transcriptMessages, setTranscriptMessages] = useState<TranscriptMessage[]>([]);
   const [remoteAudioStream, setRemoteAudioStream] = useState<MediaStream | null>(null);
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -33,6 +42,16 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     };
     setEvents(prev => [...prev, event]);
     setStatus(status);
+  }, []);
+
+  const addTranscriptMessage = useCallback((speaker: 'mikkel' | 'freja', text: string, rawEvent: any) => {
+    const message: TranscriptMessage = {
+      speaker,
+      text,
+      ts_ms: Date.now(),
+      raw_json: rawEvent
+    };
+    setTranscriptMessages(prev => [...prev, message]);
   }, []);
 
   const cleanup = useCallback(() => {
@@ -59,6 +78,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     }
     
     setRemoteAudioStream(null);
+    setTranscriptMessages([]);
   }, []);
 
   const connect = useCallback(async () => {
@@ -173,6 +193,34 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       dc.addEventListener('message', (event) => {
         // Handle incoming events from OpenAI
         console.log('Received message:', event.data);
+        
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Handle transcript events for Mikkel (user speech)
+          if (data.type === 'conversation.item.input_audio_transcription.completed') {
+            if (data.transcript) {
+              addTranscriptMessage('mikkel', data.transcript, data);
+            }
+          }
+          
+          // Handle transcript events for Freja (AI response)
+          if (data.type === 'response.audio_transcript.delta') {
+            if (data.delta) {
+              addTranscriptMessage('freja', data.delta, data);
+            }
+          }
+          
+          // Handle full AI response transcript
+          if (data.type === 'response.audio_transcript.done') {
+            if (data.transcript) {
+              addTranscriptMessage('freja', data.transcript, data);
+            }
+          }
+          
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
       });
 
       dc.addEventListener('error', (event) => {
@@ -229,6 +277,27 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     cleanup();
   }, [addEvent, cleanup]);
 
+  // Listen for test events from Playwright tests
+  useEffect(() => {
+    const handleTranscriptEvent = (event: CustomEvent) => {
+      const { speaker, text, ts_ms, raw_json } = event.detail;
+      addTranscriptMessage(speaker, text, raw_json);
+    };
+
+    const handleTranscriptMessage = (event: CustomEvent) => {
+      const { speaker, text, ts_ms, raw_json } = event.detail;
+      addTranscriptMessage(speaker, text, raw_json);
+    };
+
+    window.addEventListener('transcript-event', handleTranscriptEvent as EventListener);
+    window.addEventListener('transcript-message', handleTranscriptMessage as EventListener);
+
+    return () => {
+      window.removeEventListener('transcript-event', handleTranscriptEvent as EventListener);
+      window.removeEventListener('transcript-message', handleTranscriptMessage as EventListener);
+    };
+  }, [addTranscriptMessage]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -239,6 +308,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   return {
     status,
     events,
+    transcriptMessages,
     remoteAudioStream,
     connect,
     disconnect

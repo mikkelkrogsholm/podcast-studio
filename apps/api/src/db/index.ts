@@ -8,6 +8,9 @@ const sqlite: DatabaseType = new Database('podcast-studio.db')
 // Enable WAL mode for better concurrent access
 sqlite.pragma('journal_mode = WAL')
 
+// Enable foreign key constraints
+sqlite.pragma('foreign_keys = ON')
+
 // Create the Drizzle ORM instance
 export const db = drizzle(sqlite, { schema })
 

@@ -21,3 +21,13 @@ export const audioFiles = sqliteTable('audio_files', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
+
+export const messages = sqliteTable('messages', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: text('session_id').notNull().references(() => sessions.id),
+  speaker: text('speaker').notNull(), // 'mikkel' or 'freja'
+  text: text('text').notNull(), // the transcript text
+  tsMs: integer('ts_ms').notNull(), // timestamp in milliseconds
+  rawJson: text('raw_json').notNull(), // raw event JSON
+  createdAt: integer('created_at').notNull(),
+})

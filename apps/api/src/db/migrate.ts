@@ -25,7 +25,18 @@ const migrations = [
   )`,
   // Step 5: Add auto-save and crash recovery fields
   `ALTER TABLE sessions ADD COLUMN last_heartbeat INTEGER`,
-  `ALTER TABLE sessions ADD COLUMN completed_at INTEGER`
+  `ALTER TABLE sessions ADD COLUMN completed_at INTEGER`,
+  // Step 6: Add messages table for transcript persistence
+  `CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    speaker TEXT NOT NULL,
+    text TEXT NOT NULL,
+    ts_ms INTEGER NOT NULL,
+    raw_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions (id)
+  )`
 ]
 
 export async function runMigrations(): Promise<void> {
