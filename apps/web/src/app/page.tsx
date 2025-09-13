@@ -28,6 +28,12 @@ export default function HomePage() {
       return;
     }
 
+    // Connect to OpenAI first if not connected
+    if (status !== 'connected') {
+      alert('Please connect to OpenAI first before starting recording');
+      return;
+    }
+
     try {
       // Create a new session
       const response = await fetch('http://localhost:4201/api/session', {
