@@ -413,8 +413,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
       const sessionData = await getResponse.json()
       expect(sessionData).toHaveProperty('settings')
       expect(sessionData.settings).toEqual({
-        model: 'gpt-4o-realtime-preview',
-        voice: 'alloy',
+        model: 'gpt-realtime',
+        voice: 'cedar',
         temperature: 0.8,
         top_p: 1.0,
         language: 'da-DK',
@@ -424,8 +424,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
 
     it('should create session with custom settings', async () => {
       const customSettings = {
-        model: 'gpt-4o-realtime-preview',
-        voice: 'echo',
+        model: 'gpt-realtime',
+        voice: 'marin',
         temperature: 0.5,
         top_p: 0.9,
         language: 'en-US',
@@ -514,8 +514,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
 
     it('should use settings in OpenAI Realtime initialization', async () => {
       const customSettings = {
-        model: 'gpt-4o-realtime-preview',
-        voice: 'nova',
+        model: 'gpt-realtime',
+        voice: 'marin',
         temperature: 0.3,
         top_p: 0.8,
         language: 'en-US',
@@ -542,7 +542,7 @@ describe('Step 7: Playground Controls (Settings)', () => {
       const session = await getResponse.json()
       
       // Verify all settings are present and match for OpenAI init
-      expect(session.settings.voice).toBe('nova') // This will fail until settings are used in init
+      expect(session.settings.voice).toBe('marin') // This will fail until settings are used in init
       expect(session.settings.temperature).toBe(0.3) // This will fail until settings are used in init
       expect(session.settings.silence_ms).toBe(1500) // This will fail until VAD settings are applied
     })
