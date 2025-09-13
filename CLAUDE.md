@@ -136,6 +136,7 @@ Additional documentation is available in the `docs/` folder:
 - **[step-05-auto-save-recovery.md](docs/step-05-auto-save-recovery.md)** - Auto-save functionality and crash recovery mechanisms
 - **[step-06-transcript-persistence.md](docs/step-06-transcript-persistence.md)** - Live transcript display and database persistence
 - **[step-07-playground-controls.md](docs/step-07-playground-controls.md)** - Playground-style controls for model, voice, and temperature settings
+- **[step-08-persona-context.md](docs/step-08-persona-context.md)** - Persona and context prompts for AI customization and conversation topics
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
@@ -143,3 +144,4 @@ Additional documentation is available in the `docs/` folder:
 - **Auto-save everything**: Every chunk and event persisted immediately
 - **Raw data first**: Store unprocessed audio and transcripts
 - Always make sure the UI is danish and english
+- We are in september of 2025

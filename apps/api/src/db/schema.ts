@@ -5,6 +5,8 @@ export const sessions = sqliteTable('sessions', {
   title: text('title'),
   status: text('status').default('pending'), // 'pending', 'active', 'incomplete', 'completed'
   settings: text('settings'), // JSON string of settings for Step 07
+  personaPrompt: text('persona_prompt').default(''), // Persona prompt for AI character (max 5000 chars)
+  contextPrompt: text('context_prompt').default(''), // Context prompt for session topic (max 5000 chars)
   lastHeartbeat: integer('last_heartbeat'), // timestamp of last keepalive
   completedAt: integer('completed_at'), // timestamp when session was finished
   createdAt: integer('created_at').notNull(),

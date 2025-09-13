@@ -126,7 +126,7 @@ export default function HomePage() {
 
   const handleConnect = () => {
     if (status === 'disconnected' || status === 'error') {
-      connect();
+      connect(currentSettings);
     }
   };
 

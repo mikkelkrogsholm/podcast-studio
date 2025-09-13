@@ -20,7 +20,7 @@ interface RealtimeConnectionState {
   events: ConnectionEvent[];
   transcriptMessages: TranscriptMessage[];
   remoteAudioStream: MediaStream | null;
-  connect: () => Promise<void>;
+  connect: (settings?: any) => Promise<void>;
   disconnect: () => void;
 }
 
@@ -81,7 +81,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     setTranscriptMessages([]);
   }, []);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (settings?: any) => {
     if (status === 'connecting' || status === 'connected') {
       return;
     }
@@ -149,13 +149,22 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       dc.addEventListener('open', () => {
         addEvent('connected', 'Data channel opened');
         
+        // Build instructions from persona and context prompts if provided
+        let instructions = 'You are Freja, a friendly AI podcast co-host. Be conversational and engaging.';
+        if (settings?.persona_prompt) {
+          instructions = settings.persona_prompt;
+        }
+        if (settings?.context_prompt) {
+          instructions += '\n\nContext: ' + settings.context_prompt;
+        }
+        
         // Configure session for voice mode with VAD
         const sessionConfig = {
           type: 'session.update',
           session: {
             modalities: ['audio', 'text'],
-            instructions: 'You are Freja, a friendly AI podcast co-host. Be conversational and engaging.',
-            voice: 'alloy',
+            instructions: instructions,
+            voice: settings?.voice || 'cedar',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
@@ -165,7 +174,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 500
+              silence_duration_ms: settings?.silence_ms || 500
             },
             tools: [],
             tool_choice: 'auto'

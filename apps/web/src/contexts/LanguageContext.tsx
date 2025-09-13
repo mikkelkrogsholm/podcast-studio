@@ -97,6 +97,13 @@ interface Translations {
     lockedMessage: string;
     validationError: string;
     pleaseFixErrors: string;
+    personaPrompt: string;
+    contextPrompt: string;
+    personaPlaceholder: string;
+    contextPlaceholder: string;
+    characterCount: string;
+    tooLong: string;
+    personaLocked: string;
   };
 }
 
@@ -194,6 +201,13 @@ const translations: Record<Language, Translations> = {
       lockedMessage: 'Indstillinger er låst under optagelse',
       validationError: 'Ugyldig værdi',
       pleaseFixErrors: 'Ret venligst fejlene før du fortsætter',
+      personaPrompt: 'Persona (Freja)',
+      contextPrompt: 'Dagens kontekst',
+      personaPlaceholder: 'Beskriv hvordan Freja skal opføre sig som AI co-host...',
+      contextPlaceholder: 'Beskriv dagens emne eller kontekst for samtalen...',
+      characterCount: 'tegn',
+      tooLong: 'For langt (maks 5000 tegn)',
+      personaLocked: 'Persona låst',
     },
   },
   en: {
@@ -289,6 +303,13 @@ const translations: Record<Language, Translations> = {
       lockedMessage: 'Settings are locked during recording',
       validationError: 'Invalid value',
       pleaseFixErrors: 'Please fix the errors before continuing',
+      personaPrompt: 'Persona (Freja)',
+      contextPrompt: 'Today\'s Context',
+      personaPlaceholder: 'Describe how Freja should behave as AI co-host...',
+      contextPlaceholder: 'Describe today\'s topic or conversation context...',
+      characterCount: 'characters',
+      tooLong: 'Too long (max 5000 characters)',
+      personaLocked: 'Persona locked',
     },
   },
 };

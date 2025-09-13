@@ -266,6 +266,129 @@ describe('Step 5: Auto-save & Crash Recovery', () => {
   })
 })
 
+describe('Step 8: Persona and Context Prompts', () => {
+  describe('Persona and Context Persistence', () => {
+    it('should create session with persona_prompt and context_prompt', async () => {
+      const sessionData = {
+        title: 'Persona Context Test Session',
+        persona_prompt: 'You are a knowledgeable podcast co-host named Freja. Be friendly and engaging.',
+        context_prompt: 'Today we are discussing AI technology trends in 2024.'
+      }
+      
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(sessionData)
+      })
+      
+      expect(response.status).toBe(200) // This will fail until persona/context fields are added
+      const data = await response.json()
+      expect(data).toHaveProperty('sessionId')
+      
+      // Get session details to verify prompts are stored exactly as provided
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${data.sessionId}`)
+      expect(getResponse.status).toBe(200) // This will fail until GET endpoint supports prompts
+      
+      const sessionDetails = await getResponse.json()
+      expect(sessionDetails).toHaveProperty('persona_prompt', sessionData.persona_prompt) // This will fail until fields are stored
+      expect(sessionDetails).toHaveProperty('context_prompt', sessionData.context_prompt) // This will fail until fields are stored
+    })
+
+    it('should create session with empty persona/context when not provided', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'No Prompts Session'
+        })
+      })
+      
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${data.sessionId}`)
+      const sessionDetails = await getResponse.json()
+      
+      expect(sessionDetails).toHaveProperty('persona_prompt', '') // This will fail until default empty strings are set
+      expect(sessionDetails).toHaveProperty('context_prompt', '') // This will fail until default empty strings are set
+    })
+
+    it('should validate persona_prompt length limit', async () => {
+      const longPersona = 'x'.repeat(5001) // Assuming 5000 char limit
+      
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Long Persona Session',
+          persona_prompt: longPersona
+        })
+      })
+      
+      expect(response.status).toBe(400) // This will fail until validation is implemented
+      const errorData = await response.json()
+      expect(errorData.error).toContain('persona_prompt') // This will fail until validation exists
+      expect(errorData.error).toContain('length') // This will fail until length validation exists
+    })
+
+    it('should validate context_prompt length limit', async () => {
+      const longContext = 'x'.repeat(5001) // Assuming 5000 char limit
+      
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Long Context Session',
+          context_prompt: longContext
+        })
+      })
+      
+      expect(response.status).toBe(400) // This will fail until validation is implemented
+      const errorData = await response.json()
+      expect(errorData.error).toContain('context_prompt') // This will fail until validation exists
+      expect(errorData.error).toContain('length') // This will fail until length validation exists
+    })
+
+    it('should return exact strings when retrieving session with prompts', async () => {
+      const originalPrompts = {
+        persona_prompt: 'You are Freja, an AI co-host. Be conversational and curious about tech topics.',
+        context_prompt: 'We are recording episode 42 about machine learning breakthroughs in healthcare.'
+      }
+      
+      // Create session
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Exact String Test',
+          ...originalPrompts
+        })
+      })
+      
+      const createData = await createResponse.json()
+      
+      // Retrieve session and verify exact string match
+      const getResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${createData.sessionId}`)
+      const sessionData = await getResponse.json()
+      
+      expect(sessionData.persona_prompt).toBe(originalPrompts.persona_prompt) // This will fail until exact storage works
+      expect(sessionData.context_prompt).toBe(originalPrompts.context_prompt) // This will fail until exact storage works
+      
+      // Verify no trimming or modification occurred
+      expect(sessionData.persona_prompt.length).toBe(originalPrompts.persona_prompt.length) // This will fail until strings are preserved
+      expect(sessionData.context_prompt.length).toBe(originalPrompts.context_prompt.length) // This will fail until strings are preserved
+    })
+  })
+})
+
 describe('Step 7: Playground Controls (Settings)', () => {
   describe('Session Settings Validation', () => {
     it('should create session with default settings when none provided', async () => {
@@ -290,8 +413,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
       const sessionData = await getResponse.json()
       expect(sessionData).toHaveProperty('settings')
       expect(sessionData.settings).toEqual({
-        model: 'gpt-4o-realtime-preview',
-        voice: 'alloy',
+        model: 'gpt-realtime',
+        voice: 'cedar',
         temperature: 0.8,
         top_p: 1.0,
         language: 'da-DK',
@@ -301,8 +424,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
 
     it('should create session with custom settings', async () => {
       const customSettings = {
-        model: 'gpt-4o-realtime-preview',
-        voice: 'echo',
+        model: 'gpt-realtime',
+        voice: 'marin',
         temperature: 0.5,
         top_p: 0.9,
         language: 'en-US',
@@ -391,8 +514,8 @@ describe('Step 7: Playground Controls (Settings)', () => {
 
     it('should use settings in OpenAI Realtime initialization', async () => {
       const customSettings = {
-        model: 'gpt-4o-realtime-preview',
-        voice: 'nova',
+        model: 'gpt-realtime',
+        voice: 'marin',
         temperature: 0.3,
         top_p: 0.8,
         language: 'en-US',
@@ -419,7 +542,7 @@ describe('Step 7: Playground Controls (Settings)', () => {
       const session = await getResponse.json()
       
       // Verify all settings are present and match for OpenAI init
-      expect(session.settings.voice).toBe('nova') // This will fail until settings are used in init
+      expect(session.settings.voice).toBe('marin') // This will fail until settings are used in init
       expect(session.settings.temperature).toBe(0.3) // This will fail until settings are used in init
       expect(session.settings.silence_ms).toBe(1500) // This will fail until VAD settings are applied
     })

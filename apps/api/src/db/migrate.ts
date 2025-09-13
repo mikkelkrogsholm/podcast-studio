@@ -38,7 +38,10 @@ const migrations = [
     FOREIGN KEY (session_id) REFERENCES sessions (id)
   )`,
   // Step 7: Add settings column for playground controls
-  `ALTER TABLE sessions ADD COLUMN settings TEXT`
+  `ALTER TABLE sessions ADD COLUMN settings TEXT`,
+  // Step 8: Add persona_prompt and context_prompt columns for persona and context prompts
+  `ALTER TABLE sessions ADD COLUMN persona_prompt TEXT DEFAULT ''`,
+  `ALTER TABLE sessions ADD COLUMN context_prompt TEXT DEFAULT ''`
 ]
 
 export async function runMigrations(): Promise<void> {
