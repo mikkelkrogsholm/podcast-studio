@@ -1,5 +1,5 @@
 "use client";
-import { PlugZap, Settings as SettingsIcon, Circle, Pause, Square, History } from 'lucide-react';
+import { PlugZap, Settings as SettingsIcon, Circle, Pause, Square, History, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Tooltip } from '../ui/Tooltip';
 
@@ -7,10 +7,12 @@ interface TopBarProps {
   status: string;
   isRecording: boolean;
   paused: boolean;
+  isAiSpeaking?: boolean;
   onRecord: () => void;
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  onInterrupt?: () => void;
   onToggleSettings: () => void;
   onToggleSessions: () => void;
   onConnect: () => void;
@@ -22,7 +24,7 @@ interface TopBarProps {
 
 export function TopBar(props: TopBarProps) {
   const { t } = useLanguage();
-  const { status, isRecording, paused } = props;
+  const { status, isRecording, paused, isAiSpeaking = false } = props;
 
   const connColor =
     status === 'connected' ? 'text-green-600' : status === 'connecting' ? 'text-yellow-600' : status === 'error' ? 'text-red-600' : 'text-ink-muted';
@@ -84,6 +86,19 @@ export function TopBar(props: TopBarProps) {
           <Square className="w-5 h-5 text-ink" />
         </button>
         </Tooltip>
+
+        {/* Interrupt button - only visible when AI is speaking during recording */}
+        {isRecording && isAiSpeaking && props.onInterrupt && (
+          <Tooltip label={t.tooltips.interrupt}>
+            <button
+              className="p-2 rounded-full transition-ui bg-red-100 hover:bg-red-200 border border-red-300"
+              onClick={props.onInterrupt}
+              aria-label={t.toolbar.interrupt}
+            >
+              <X className="w-5 h-5 text-red-600" />
+            </button>
+          </Tooltip>
+        )}
       </div>
 
       {/* Center: Mini audio levels */}

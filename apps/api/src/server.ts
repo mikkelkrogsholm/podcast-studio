@@ -439,6 +439,47 @@ function createWavHeader(dataLength: number): Buffer {
   return header
 }
 
+// Helper function to calculate WAV duration from file
+async function calculateWavDurationMs(filePath: string): Promise<number> {
+  try {
+    const fileBuffer = await fs.readFile(filePath)
+
+    // Check if file is too small for WAV header
+    if (fileBuffer.length < 44) {
+      return 0 // Empty or invalid file
+    }
+
+    // Check if it's a valid WAV file
+    if (fileBuffer.toString('ascii', 0, 4) !== 'RIFF' || fileBuffer.toString('ascii', 8, 12) !== 'WAVE') {
+      // Not a WAV file, calculate based on raw data size using our known format
+      // Raw PCM16, 48kHz, mono: bytes_per_second = 48000 * 2 = 96000
+      const durationMs = (fileBuffer.length / 96000) * 1000
+      return Math.round(durationMs)
+    }
+
+    // Extract audio data size from WAV header (bytes 40-43)
+    const dataSize = fileBuffer.readUInt32LE(40)
+
+    // Extract sample rate from WAV header (bytes 24-27)
+    const sampleRate = fileBuffer.readUInt32LE(24)
+
+    // Extract bits per sample from WAV header (bytes 34-35)
+    const bitsPerSample = fileBuffer.readUInt16LE(34)
+
+    // Extract number of channels from WAV header (bytes 22-23)
+    const channels = fileBuffer.readUInt16LE(22)
+
+    // Calculate duration: dataSize / (sampleRate * channels * bytesPerSample) * 1000
+    const bytesPerSample = bitsPerSample / 8
+    const durationMs = (dataSize / (sampleRate * channels * bytesPerSample)) * 1000
+
+    return Math.round(durationMs)
+  } catch (error) {
+    console.error('Failed to calculate WAV duration:', error)
+    return 0 // Return 0 for files that can't be read
+  }
+}
+
 // POST /api/session/:id/keepalive - Update session's last_heartbeat timestamp
 app.post('/api/session/:id/keepalive', async (req, res) => {
   try {
@@ -579,9 +620,44 @@ app.post('/api/session/:id/finish', async (req, res) => {
 
     const now = Date.now()
 
+    // Get all audio files for this session to calculate durations
+    const sessionAudioFiles = await db.select()
+      .from(audioFiles)
+      .where(eq(audioFiles.sessionId, id))
+
+    // Calculate duration for each audio file
+    for (const audioFile of sessionAudioFiles) {
+      try {
+        const sessionDir = path.join(process.cwd(), 'sessions', id)
+        const canonical = normalizeSpeaker(audioFile.speaker)
+        const audioFilePath = await resolveAudioPath(sessionDir, canonical)
+
+        // Calculate duration from file
+        const durationMs = await calculateWavDurationMs(audioFilePath)
+
+        // Update audio file with calculated duration
+        await db.update(audioFiles)
+          .set({
+            duration: durationMs,
+            updatedAt: now
+          })
+          .where(eq(audioFiles.id, audioFile.id))
+      } catch (error) {
+        console.error(`Failed to calculate duration for audio file ${audioFile.id}:`, error)
+        // Continue with other files even if one fails
+        // Set duration to 0 for files that can't be processed
+        await db.update(audioFiles)
+          .set({
+            duration: 0,
+            updatedAt: now
+          })
+          .where(eq(audioFiles.id, audioFile.id))
+      }
+    }
+
     // Mark session as completed
     await db.update(sessions)
-      .set({ 
+      .set({
         status: 'completed',
         completedAt: now,
         updatedAt: now
