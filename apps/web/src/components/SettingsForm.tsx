@@ -10,7 +10,7 @@ interface SettingsFormProps {
 }
 
 const defaultSettings: Settings = {
-  model: 'gpt-4o-realtime-preview',
+  model: 'gpt-realtime',
   voice: 'cedar',
   temperature: 0.8,
   top_p: 1.0,
@@ -196,7 +196,8 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
               ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
             `}
           >
-            <option value="gpt-4o-realtime-preview">GPT-4o Realtime Preview</option>
+            <option value="gpt-realtime">GPT Realtime (Latest)</option>
+            <option value="gpt-4o-realtime-preview">GPT-4o Realtime Preview (Legacy)</option>
           </select>
         </div>
 
@@ -231,6 +232,9 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
         <div>
           <label htmlFor="temperature" className="block text-sm font-medium text-gray-700 mb-1">
             {t.settings.temperature}: {settings['temperature'].toFixed(1)}
+            {settings.model === 'gpt-realtime' && (
+              <span className="text-xs text-gray-500 ml-2">(Not supported in GPT Realtime)</span>
+            )}
           </label>
           <input
             id="temperature"

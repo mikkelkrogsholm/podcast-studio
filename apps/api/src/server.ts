@@ -18,7 +18,7 @@ const CreateMessageRequestSchema = z.object({
 
 // Settings schema for Step 07 with defaults
 const SettingsSchema = z.object({
-  model: z.literal('gpt-4o-realtime-preview').default('gpt-4o-realtime-preview'),
+  model: z.enum(['gpt-realtime', 'gpt-4o-realtime-preview']).default('gpt-realtime'),
   voice: z.enum(['cedar', 'marin', 'ash', 'ballad', 'coral', 'sage', 'verse', 'alloy']).default('cedar'),
   temperature: z.number().min(0.0).max(1.0).default(0.8),
   top_p: z.number().min(0.0).max(1.0).default(1.0),
