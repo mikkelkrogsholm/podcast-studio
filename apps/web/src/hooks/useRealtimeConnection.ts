@@ -280,12 +280,12 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   // Listen for test events from Playwright tests
   useEffect(() => {
     const handleTranscriptEvent = (event: CustomEvent) => {
-      const { speaker, text, ts_ms, raw_json } = event.detail;
+      const { speaker, text, raw_json } = event.detail;
       addTranscriptMessage(speaker, text, raw_json);
     };
 
     const handleTranscriptMessage = (event: CustomEvent) => {
-      const { speaker, text, ts_ms, raw_json } = event.detail;
+      const { speaker, text, raw_json } = event.detail;
       addTranscriptMessage(speaker, text, raw_json);
     };
 
