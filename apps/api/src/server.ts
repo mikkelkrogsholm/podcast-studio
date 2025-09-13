@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto'
 import { db } from './db/index.js'
 import { sessions, audioFiles, messages } from './db/schema.js'
 import { runMigrations } from './db/migrate.js'
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, desc, count } from 'drizzle-orm'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 // Temporarily define schemas inline until import issue is resolved
@@ -27,9 +27,19 @@ const SettingsSchema = z.object({
   silence_ms: z.number().positive().default(900),
 })
 
+// Settings validation schema without defaults (for validation-only purposes)
+const SettingsValidationSchema = z.object({
+  model: z.enum(['gpt-realtime', 'gpt-4o-realtime-preview']).optional(),
+  voice: z.enum(['cedar', 'marin', 'ash', 'ballad', 'coral', 'sage', 'verse', 'alloy']).optional(),
+  temperature: z.number().min(0.0).max(1.0).optional(),
+  top_p: z.number().min(0.0).max(1.0).optional(),
+  language: z.enum(['da-DK', 'en-US']).optional(),
+  silence_ms: z.number().positive().optional(),
+})
+
 const CreateSessionRequestSchema = z.object({
   title: z.string(),
-  settings: SettingsSchema.optional(),
+  settings: SettingsValidationSchema.optional(),
   persona_prompt: z.string().max(5000).optional(),
   context_prompt: z.string().max(5000).optional(),
 })
@@ -170,14 +180,14 @@ app.post('/api/session', async (req, res) => {
     const sessionId = randomUUID()
     const now = Date.now()
 
-    // Apply default settings if none provided, or merge with provided settings
-    const finalSettings = settings ? settings : SettingsSchema.parse({})
+    // Store settings as-is (validation already done by CreateSessionRequestSchema)
+    const finalSettings = settings || {}
 
     // Create session in database
     await db.insert(sessions).values({
       id: sessionId,
       title: title || 'New Recording Session',
-      settings: JSON.stringify(finalSettings),
+      settings: JSON.stringify(finalSettings), // Store original settings without defaults
       personaPrompt: persona_prompt || '',
       contextPrompt: context_prompt || '',
       status: 'active',
@@ -676,24 +686,72 @@ app.post('/api/session/:id/finish', async (req, res) => {
   }
 })
 
-// GET /api/sessions - List all sessions with their status
-app.get('/api/sessions', async (_req, res) => {
+// GET /api/sessions - List all sessions with pagination and sorting
+app.get('/api/sessions', async (req, res) => {
   try {
-    const allSessions = await db.select().from(sessions)
+    // Parse and validate pagination parameters
+    const limitParam = req.query['limit'] as string
+    const offsetParam = req.query['offset'] as string
 
-    const sessionsWithInfo = allSessions.map(session => ({
-      id: session.id,
-      title: session.title,
-      status: session.status,
-      lastHeartbeat: session.lastHeartbeat,
-      completedAt: session.completedAt,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt
-    }))
+    // Parse with validation for non-numeric values
+    const limitParsed = limitParam ? parseInt(limitParam) : 50
+    const offsetParsed = offsetParam ? parseInt(offsetParam) : 0
+
+    // Check for invalid numeric parsing
+    if (limitParam && isNaN(limitParsed)) {
+      return res.status(400).json({ error: 'limit must be a valid number' })
+    }
+    if (offsetParam && isNaN(offsetParsed)) {
+      return res.status(400).json({ error: 'offset must be a valid number' })
+    }
+
+    // Apply constraints
+    const limit = Math.max(Math.min(limitParsed, 100), 1)
+    const offset = Math.max(offsetParsed, 0)
+
+    // Validate pagination parameters
+    if (limitParsed > 100) {
+      return res.status(400).json({ error: 'limit must not exceed 100' })
+    }
+    if (offsetParsed < 0) {
+      return res.status(400).json({ error: 'offset must be non-negative' })
+    }
+
+    // Get total count of sessions
+    const totalResult = await db.select({ count: count() }).from(sessions)
+    const total = totalResult[0]?.count || 0
+
+    // Get paginated sessions sorted by createdAt DESC (newest first)
+    const allSessions = await db.select()
+      .from(sessions)
+      .orderBy(desc(sessions.createdAt))
+      .limit(limit)
+      .offset(offset)
+
+    // Calculate duration for each session if it's completed
+    const sessionsWithInfo = allSessions.map(session => {
+      let duration = null
+      if (session.status === 'completed' && session.completedAt && session.createdAt) {
+        duration = session.completedAt - session.createdAt
+      }
+
+      return {
+        id: session.id,
+        title: session.title,
+        status: session.status,
+        createdAt: session.createdAt,
+        completedAt: session.completedAt,
+        duration
+      }
+    })
 
     return res.json({
       sessions: sessionsWithInfo,
-      total: sessionsWithInfo.length
+      pagination: {
+        limit,
+        offset,
+        total
+      }
     })
 
   } catch (error) {
@@ -724,7 +782,7 @@ async function resolveAudioPath(sessionDir: string, canonical: 'human' | 'ai'): 
   return canonicalPath
 }
 
-// GET /api/session/:id - Get session details including audio files
+// GET /api/session/:id - Get detailed session information
 app.get('/api/session/:id', async (req, res) => {
   try {
     // Validate params
@@ -754,7 +812,6 @@ app.get('/api/session/:id', async (req, res) => {
     const audioFilesInfo = audioFileResults.map(audioFile => ({
       id: audioFile.id,
       speaker: normalizeSpeaker(audioFile.speaker),
-      // If legacy file path, present canonical path for UI, but keep compatibility
       filePath: audioFile.filePath,
       size: audioFile.size || 0,
       duration: audioFile.duration,
@@ -763,14 +820,53 @@ app.get('/api/session/:id', async (req, res) => {
       updatedAt: audioFile.updatedAt
     }))
 
+    // Get message count and transcript preview
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    const messageCount = messageResults.length
+
+    // Create transcript preview (first 500 characters of concatenated messages)
+    let transcriptPreview = ''
+    if (messageResults.length > 0) {
+      const fullTranscript = messageResults.map(msg => msg.text).join(' ')
+      transcriptPreview = fullTranscript.length > 500
+        ? fullTranscript.substring(0, 500) + '...'
+        : fullTranscript
+    }
+
+    // Calculate duration if session is completed
+    let duration = null
+    if (session.status === 'completed' && session.completedAt && session.createdAt) {
+      duration = session.completedAt - session.createdAt
+    }
+
     // Parse settings if they exist
     let parsedSettings = null
     if (session.settings) {
       try {
-        parsedSettings = JSON.parse(session.settings)
+        const storedSettings = JSON.parse(session.settings)
+        // If settings were provided, return them as-is
+        // If no settings were stored (empty object), return defaults for compatibility
+        if (Object.keys(storedSettings).length > 0) {
+          parsedSettings = storedSettings
+        } else {
+          parsedSettings = SettingsSchema.parse({}) // Apply defaults for empty settings
+        }
       } catch (error) {
         console.error('Failed to parse settings JSON:', error)
+        parsedSettings = SettingsSchema.parse({}) // Apply defaults on parse error
       }
+    }
+
+    // Create download links
+    const downloadLinks = {
+      humanAudio: `/api/session/${id}/download?type=audio&speaker=human`,
+      aiAudio: `/api/session/${id}/download?type=audio&speaker=ai`,
+      transcript: `/api/session/${id}/download?type=transcript`,
+      session: `/api/session/${id}/download?type=session`
     }
 
     return res.json({
@@ -784,7 +880,11 @@ app.get('/api/session/:id', async (req, res) => {
       completedAt: session.completedAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      audioFiles: audioFilesInfo
+      duration,
+      messageCount,
+      transcriptPreview,
+      audioFiles: audioFilesInfo,
+      downloadLinks
     })
 
   } catch (error) {

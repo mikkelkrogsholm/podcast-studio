@@ -9,6 +9,7 @@ import { Transcript } from '../components/Transcript';
 import { SettingsForm } from '../components/SettingsForm';
 import { CurrentSettings } from '../components/CurrentSettings';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Settings } from '@podcast-studio/shared';
 import { Card } from '../ui/Card';
@@ -20,6 +21,7 @@ export default function HomePage() {
   const { status, transcriptMessages, remoteAudioStream, isAiSpeaking, connect, disconnect, interrupt } = useRealtimeConnection();
   const { isRecording, paused, volumeLevels, muteState, startRecording, stopRecording, pauseRecording, resumeRecording, setMute } = useDualTrackRecording();
   const { getSessionDetails } = useSessionRecovery();
+  const router = useRouter();
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
@@ -124,6 +126,10 @@ export default function HomePage() {
     }
   };
 
+  const handleNavigateToSessions = () => {
+    router.push('/sessions');
+  };
+
   return (
     <div className="min-h-screen p-6 md:p-8">
       <div className="mx-auto max-w-7xl mb-6">
@@ -138,7 +144,7 @@ export default function HomePage() {
           onStop={handleStopRecording}
           onInterrupt={handleInterrupt}
           onToggleSettings={() => setSettingsOpen(true)}
-          onToggleSessions={() => setShowSessions((v) => !v)}
+          onToggleSessions={handleNavigateToSessions}
           onConnect={handleConnect}
           onDisconnect={handleDisconnect}
           volumeLevels={volumeLevels}

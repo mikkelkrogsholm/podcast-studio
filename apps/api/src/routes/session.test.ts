@@ -390,6 +390,260 @@ describe('Step 8: Persona and Context Prompts', () => {
   })
 })
 
+describe('Step 11: Session History and Details', () => {
+  describe('GET /sessions - Session List', () => {
+    it('should return empty list when no sessions exist', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/sessions`)
+
+      expect(response.status).toBe(200) // This will fail until endpoint is implemented
+      const data = await response.json()
+      expect(data).toHaveProperty('sessions')
+      expect(data.sessions).toEqual([]) // This will fail until endpoint returns empty array
+      expect(data).toHaveProperty('pagination')
+      expect(data.pagination.total).toBe(0) // This will fail until pagination is implemented
+    })
+
+    it('should return sessions sorted by createdAt DESC (newest first)', async () => {
+      // Create multiple sessions with different timestamps
+      const session1Response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Oldest Session' })
+      })
+      const session1Data = await session1Response.json()
+
+      // Wait a moment to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const session2Response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Middle Session' })
+      })
+      const session2Data = await session2Response.json()
+
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const session3Response = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Newest Session' })
+      })
+      const session3Data = await session3Response.json()
+
+      // Get session list
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/sessions`)
+
+      expect(response.status).toBe(200) // This will fail until endpoint is implemented
+      const data = await response.json()
+      expect(data.sessions).toHaveLength(3) // This will fail until endpoint returns sessions
+
+      // Verify sorting (newest first)
+      expect(data.sessions[0].id).toBe(session3Data.sessionId) // This will fail until sorting is implemented
+      expect(data.sessions[1].id).toBe(session2Data.sessionId) // This will fail until sorting is implemented
+      expect(data.sessions[2].id).toBe(session1Data.sessionId) // This will fail until sorting is implemented
+
+      // Verify session data includes required fields
+      for (const session of data.sessions) {
+        expect(session).toHaveProperty('id')
+        expect(session).toHaveProperty('title')
+        expect(session).toHaveProperty('status')
+        expect(session).toHaveProperty('createdAt')
+        expect(session).toHaveProperty('duration') // This will fail until duration calculation is added
+      }
+    })
+
+    it('should support pagination with limit and offset parameters', async () => {
+      // Create 5 sessions
+      for (let i = 0; i < 5; i++) {
+        await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: `Session ${i + 1}` })
+        })
+        await new Promise(resolve => setTimeout(resolve, 10)) // Ensure different timestamps
+      }
+
+      // Test first page (limit=2, offset=0)
+      const page1Response = await fetch(`http://localhost:${TEST_PORT}/api/sessions?limit=2&offset=0`)
+      expect(page1Response.status).toBe(200) // This will fail until pagination is implemented
+
+      const page1Data = await page1Response.json()
+      expect(page1Data.sessions).toHaveLength(2) // This will fail until limit parameter works
+      expect(page1Data.pagination.total).toBe(5) // This will fail until total count is calculated
+      expect(page1Data.pagination.limit).toBe(2) // This will fail until pagination metadata is returned
+      expect(page1Data.pagination.offset).toBe(0) // This will fail until pagination metadata is returned
+
+      // Test second page (limit=2, offset=2)
+      const page2Response = await fetch(`http://localhost:${TEST_PORT}/api/sessions?limit=2&offset=2`)
+      const page2Data = await page2Response.json()
+      expect(page2Data.sessions).toHaveLength(2) // This will fail until offset parameter works
+
+      // Test last page (limit=2, offset=4)
+      const page3Response = await fetch(`http://localhost:${TEST_PORT}/api/sessions?limit=2&offset=4`)
+      const page3Data = await page3Response.json()
+      expect(page3Data.sessions).toHaveLength(1) // This will fail until pagination handles remaining items
+    })
+
+    it('should validate pagination parameters', async () => {
+      // Test invalid limit (too large)
+      const largeLimit = await fetch(`http://localhost:${TEST_PORT}/api/sessions?limit=1000`)
+      expect(largeLimit.status).toBe(400) // This will fail until validation is implemented
+      const largeLimitData = await largeLimit.json()
+      expect(largeLimitData.error).toContain('limit') // This will fail until validation error is returned
+
+      // Test negative offset
+      const negativeOffset = await fetch(`http://localhost:${TEST_PORT}/api/sessions?offset=-1`)
+      expect(negativeOffset.status).toBe(400) // This will fail until validation is implemented
+      const negativeOffsetData = await negativeOffset.json()
+      expect(negativeOffsetData.error).toContain('offset') // This will fail until validation error is returned
+
+      // Test invalid limit type
+      const invalidLimit = await fetch(`http://localhost:${TEST_PORT}/api/sessions?limit=abc`)
+      expect(invalidLimit.status).toBe(400) // This will fail until validation is implemented
+    })
+
+    it('should use default pagination values when not specified', async () => {
+      // Create one session
+      await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Default Pagination Test' })
+      })
+
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/sessions`)
+      expect(response.status).toBe(200)
+
+      const data = await response.json()
+      expect(data.pagination.limit).toBe(50) // This will fail until default limit is set
+      expect(data.pagination.offset).toBe(0) // This will fail until default offset is set
+    })
+  })
+
+  describe('GET /session/:id - Session Details', () => {
+    it('should return detailed session information including metadata and file links', async () => {
+      // Create a session with custom settings and prompts
+      const sessionData = {
+        title: 'Detailed Session Test',
+        persona_prompt: 'You are Freja, a friendly AI co-host.',
+        context_prompt: 'Today we discuss Step 11 implementation.',
+        settings: {
+          model: 'gpt-realtime',
+          voice: 'marin',
+          temperature: 0.7,
+          language: 'da-DK'
+        }
+      }
+
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      })
+
+      const createData = await createResponse.json()
+      const sessionId = createData.sessionId
+
+      // Get session details
+      const detailResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      expect(detailResponse.status).toBe(200) // This will fail until GET endpoint is implemented
+
+      const details = await detailResponse.json()
+
+      // Verify core session metadata
+      expect(details).toHaveProperty('id', sessionId)
+      expect(details).toHaveProperty('title', sessionData.title)
+      expect(details).toHaveProperty('status', 'active')
+      expect(details).toHaveProperty('createdAt')
+      expect(details).toHaveProperty('updatedAt')
+
+      // Verify prompts are included
+      expect(details).toHaveProperty('persona_prompt', sessionData.persona_prompt) // This will fail until prompts are returned
+      expect(details).toHaveProperty('context_prompt', sessionData.context_prompt) // This will fail until prompts are returned
+
+      // Verify settings are included
+      expect(details).toHaveProperty('settings')
+      expect(details.settings).toEqual(sessionData.settings) // This will fail until settings are parsed and returned
+
+      // Verify audio file links are included
+      expect(details).toHaveProperty('audioFiles')
+      expect(details.audioFiles).toHaveLength(2) // This will fail until audio files are included
+
+      const humanFile = details.audioFiles.find((f: any) => f.speaker === 'human')
+      const aiFile = details.audioFiles.find((f: any) => f.speaker === 'ai')
+
+      expect(humanFile).toBeDefined() // This will fail until audio files are returned
+      expect(aiFile).toBeDefined() // This will fail until audio files are returned
+      expect(humanFile.filePath).toContain('human.wav') // This will fail until file paths are correct
+      expect(aiFile.filePath).toContain('ai.wav') // This will fail until file paths are correct
+
+      // Verify download links are provided
+      expect(details).toHaveProperty('downloadLinks') // This will fail until download links are added
+      expect(details.downloadLinks).toHaveProperty('humanAudio') // This will fail until download links are generated
+      expect(details.downloadLinks).toHaveProperty('aiAudio') // This will fail until download links are generated
+      expect(details.downloadLinks).toHaveProperty('transcript') // This will fail until transcript download is added
+      expect(details.downloadLinks).toHaveProperty('session') // This will fail until full session download is added
+    })
+
+    it('should return 404 for non-existent session', async () => {
+      const response = await fetch(`http://localhost:${TEST_PORT}/api/session/non-existent-id`)
+
+      expect(response.status).toBe(404) // This will fail until 404 handling is implemented
+      const data = await response.json()
+      expect(data.error).toContain('Session not found') // This will fail until error message is returned
+    })
+
+    it('should include calculated session duration when session is completed', async () => {
+      // Create and finish a session
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Duration Test Session' })
+      })
+
+      const createData = await createResponse.json()
+      const sessionId = createData.sessionId
+
+      // Finish the session
+      const finishResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/finish`, {
+        method: 'POST'
+      })
+      expect(finishResponse.status).toBe(200)
+
+      // Get session details
+      const detailResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      const details = await detailResponse.json()
+
+      expect(details.status).toBe('completed')
+      expect(details).toHaveProperty('completedAt')
+      expect(details).toHaveProperty('duration') // This will fail until duration calculation is added
+      expect(typeof details.duration).toBe('number') // This will fail until duration is calculated
+      expect(details.duration).toBeGreaterThanOrEqual(0) // This will fail until duration calculation works
+    })
+
+    it('should include message count and transcript preview', async () => {
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Message Count Test' })
+      })
+
+      const createData = await createResponse.json()
+      const sessionId = createData.sessionId
+
+      // Get session details
+      const detailResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      const details = await detailResponse.json()
+
+      expect(details).toHaveProperty('messageCount') // This will fail until message count is calculated
+      expect(typeof details.messageCount).toBe('number') // This will fail until message count is implemented
+      expect(details).toHaveProperty('transcriptPreview') // This will fail until transcript preview is added
+      // For new session, should be empty or null
+      expect(details.messageCount).toBe(0) // This will fail until message count calculation works
+    })
+  })
+})
+
 describe('Step 7: Playground Controls (Settings)', () => {
   describe('Session Settings Validation', () => {
     it('should create session with default settings when none provided', async () => {

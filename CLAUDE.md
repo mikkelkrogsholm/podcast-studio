@@ -157,6 +157,11 @@ Additional documentation is available in the `docs/` folder:
   - Session finish endpoint with duration calculation
   - Stop and interrupt button implementation
   - Reconnect logic with exponential backoff
+- **[step-11-session-history.md](docs/step-11-session-history.md)** - Session history and details pages
+  - GET /api/sessions with pagination and sorting
+  - Session list page with responsive table/card view
+  - Session details page with complete metadata and download links
+  - Bilingual support for all UI elements
 
 ### UI Components and Styling
 The application uses a modern, minimalist Nordic-inspired design with:
