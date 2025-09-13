@@ -13,7 +13,6 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Settings } from '@podcast-studio/shared';
 import { Card } from '../ui/Card';
-import { Sidebar } from '../components/Sidebar';
 import { Modal } from '../ui/Modal';
 import { TopBar } from '../components/TopBar';
 
@@ -152,11 +151,7 @@ export default function HomePage() {
           onMuteToggle={setMute}
         />
       </div>
-      <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div>
-          <Sidebar current="home" />
-        </div>
-        <div className="space-y-6 lg:col-span-2">
+      <div className="mx-auto max-w-7xl space-y-6">
           {currentSettings && <CurrentSettings settings={currentSettings} />}        
 
           <Card header={<h2 className="text-xl font-semibold">{t.transcript.title}</h2>}>
@@ -168,7 +163,6 @@ export default function HomePage() {
               <SessionHistory onResumeSession={handleResumeSession} currentSessionId={currentSessionId || undefined} />
             </Card>
           )}
-        </div>
       </div>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t.settings.title}>

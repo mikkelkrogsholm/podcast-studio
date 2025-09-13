@@ -23,7 +23,7 @@ interface TopBarProps {
 }
 
 export function TopBar(props: TopBarProps) {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { status, isRecording, paused, isAiSpeaking = false } = props;
 
   const connColor =
@@ -119,6 +119,28 @@ export function TopBar(props: TopBarProps) {
 
       {/* Right: Icons */}
       <div className="flex items-center gap-2">
+        {/* Language selector */}
+        <div className="flex gap-1 bg-elevated rounded-full p-1">
+          <button
+            onClick={() => setLanguage('da')}
+            className={`px-3 py-1 rounded-full text-sm transition-ui ${
+              language === 'da' ? 'bg-[var(--accent)] text-white' : 'text-ink hover:bg-elevated/50'
+            }`}
+            aria-label="Dansk"
+          >
+            DA
+          </button>
+          <button
+            onClick={() => setLanguage('en')}
+            className={`px-3 py-1 rounded-full text-sm transition-ui ${
+              language === 'en' ? 'bg-[var(--accent)] text-white' : 'text-ink hover:bg-elevated/50'
+            }`}
+            aria-label="English"
+          >
+            EN
+          </button>
+        </div>
+
         <Tooltip label={t.tooltips.sessions}>
           <button className="p-2 rounded-full bg-elevated hover:bg-elevated/90 transition-ui" onClick={props.onToggleSessions} aria-label={t.toolbar.sessions}>
             <History className="w-5 h-5 text-ink" />
