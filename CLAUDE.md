@@ -133,6 +133,10 @@ Additional documentation is available in the `docs/` folder:
 - **[branch-summary.md](docs/branch-summary.md)** - Feature branch implementation summary and progress tracking
 
 ### UI/UX and Design
+- **[nordic-ui-topbar.md](docs/nordic-ui-topbar.md)** - Nordic-inspired UI design with clean TopBar component
+  - Minimalist design principles with focus on functionality
+  - TopBar component architecture and state management
+  - Bilingual UI elements and controls
 - **[internationalization.md](docs/internationalization.md)** - i18n implementation guide for Danish/English support
   - Danish and English language support
   - Translation management and locale switching
@@ -145,15 +149,26 @@ Additional documentation is available in the `docs/` folder:
 - **[step-06-transcript-persistence.md](docs/step-06-transcript-persistence.md)** - Live transcript display and database persistence
 - **[step-07-playground-controls.md](docs/step-07-playground-controls.md)** - Playground-style controls for model, voice, and temperature settings
 - **[step-08-persona-context.md](docs/step-08-persona-context.md)** - Persona and context prompts for AI customization and conversation topics
+- **[step-09-file-download-export.md](docs/step-09-file-download-export.md)** - File download and export functionality
+  - Audio file download endpoints
+  - Transcript export in text and JSON formats
+  - Combined download with session metadata
+- **[step-10-session-management.md](docs/step-10-session-management.md)** - Session management with stop/interrupt functionality
+  - Session finish endpoint with duration calculation
+  - Stop and interrupt button implementation
+  - Reconnect logic with exponential backoff
 
 ### UI Components and Styling
-The application uses a modern, minimalist design with:
+The application uses a modern, minimalist Nordic-inspired design with:
 - **Tailwind CSS** for utility-first styling
 - **Next.js App Router** for routing and layouts
 - **React Components** with TypeScript for type safety
+- **Nordic Design Principles**: Clean, functional, accessible
+- **TopBar Component**: Centralized control center for recording and settings
 - **Dark mode support** via Tailwind's dark: prefix
 - **Responsive design** for desktop and mobile layouts
 - **Accessibility-first** approach with proper ARIA labels and keyboard navigation
+- **Bilingual Interface**: All UI elements support Danish and English
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
