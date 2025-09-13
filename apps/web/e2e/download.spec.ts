@@ -1,6 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
 
 test.describe('Step 9: File Download & Export', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,9 +10,6 @@ test.describe('Step 9: File Download & Export', () => {
   });
 
   test('should show download buttons for completed sessions', async ({ page }) => {
-    // Check if there are any completed sessions in the history
-    const sessionHistory = page.locator('[data-testid="session-history"]');
-
     // If there are completed sessions, verify download buttons are visible
     const completedSession = page.locator('text=Afsluttet').first();
     if (await completedSession.isVisible()) {
@@ -26,7 +21,7 @@ test.describe('Step 9: File Download & Export', () => {
     }
   });
 
-  test('should download audio files when clicking download buttons', async ({ page, context }) => {
+  test('should download audio files when clicking download buttons', async ({ page }) => {
     // Set up download handling
     const downloadPromise = page.waitForEvent('download');
 
@@ -104,8 +99,6 @@ test.describe('Step 9: File Download & Export', () => {
   test('should only show audio download buttons when files exist', async ({ page }) => {
     // This test verifies that the UI properly checks for file existence
     // Audio buttons should only appear when audioFiles array has entries with size > 0
-
-    const sessionHistory = page.locator('[data-testid="session-history"]');
 
     // Check that transcript buttons are always visible for completed sessions
     const completedSession = page.locator('text=Afsluttet').first();
