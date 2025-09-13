@@ -2,6 +2,7 @@
 
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SessionHistoryProps {
   onResumeSession?: (sessionId: string) => void;
@@ -23,6 +24,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const { t } = useLanguage();
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
@@ -46,6 +48,19 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
         return 'text-blue-600 bg-blue-50';
       default:
         return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active':
+        return t.sessionRecovery.statusActive;
+      case 'incomplete':
+        return t.sessionRecovery.statusIncomplete;
+      case 'completed':
+        return t.sessionRecovery.statusCompleted;
+      default:
+        return status;
     }
   };
 
@@ -89,10 +104,10 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   if (isLoading) {
     return (
       <div className="p-6 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">Session History</h2>
+        <h2 className="text-xl font-semibold mb-4">{t.sessionRecovery.sessionHistory}</h2>
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading sessions...</p>
+          <p className="mt-2 text-gray-600">{t.sessionRecovery.loadingSessions}</p>
         </div>
       </div>
     );
@@ -101,14 +116,14 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   if (error) {
     return (
       <div className="p-6 border rounded-lg bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4">Session History</h2>
+        <h2 className="text-xl font-semibold mb-4">{t.sessionRecovery.sessionHistory}</h2>
         <div className="text-center py-4">
-          <p className="text-red-600">Error loading sessions: {error}</p>
+          <p className="text-red-600">{t.sessionRecovery.errorLoadingSessions}: {error}</p>
           <button 
             onClick={fetchSessions}
             className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            Retry
+            {t.sessionRecovery.retry}
           </button>
         </div>
       </div>
@@ -118,12 +133,12 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
   return (
     <div className="p-6 border rounded-lg bg-gray-50">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Session History</h2>
+        <h2 className="text-xl font-semibold">{t.sessionRecovery.sessionHistory}</h2>
         <button 
           onClick={fetchSessions}
           className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
         >
-          Refresh
+          {t.sessionRecovery.refresh}
         </button>
       </div>
 
@@ -131,10 +146,10 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
       {hasIncompleteSessions && (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <h3 className="font-medium text-yellow-800 mb-2">
-            ⚠️ Incomplete Sessions Found ({incompleteSessions.length})
+            ⚠️ {t.sessionRecovery.incompleteSessions} ({incompleteSessions.length})
           </h3>
           <p className="text-sm text-yellow-700 mb-3">
-            These sessions were interrupted and may contain recoverable audio data.
+            {t.sessionRecovery.recoveryMessage}
           </p>
           <div className="space-y-2">
             {incompleteSessions.map(session => (
@@ -151,14 +166,14 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                       onClick={() => handleResumeSession(session.id)}
                       className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded"
                     >
-                      Resume
+                      {t.sessionRecovery.resume}
                     </button>
                   )}
                   <button
                     onClick={() => handleFinishSession(session.id)}
                     className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded"
                   >
-                    Mark Complete
+                    {t.sessionRecovery.markComplete}
                   </button>
                 </div>
               </div>
@@ -169,7 +184,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
 
       {/* All Sessions List */}
       {sessions.length === 0 ? (
-        <p className="text-gray-600 text-center py-4">No sessions found.</p>
+        <p className="text-gray-600 text-center py-4">{t.sessionRecovery.noSessionsFound}</p>
       ) : (
         <div className="space-y-2">
           {sessions.slice(0, 10).map(session => (
@@ -183,21 +198,21 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                     <div className="flex items-center gap-3">
                       <h3 className="font-medium">{session.title}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-                        {session.status}
+                        {getStatusText(session.status)}
                       </span>
                       {session.id === currentSessionId && (
                         <span className="px-2 py-1 rounded-full text-xs font-medium text-green-600 bg-green-100">
-                          Current
+                          {t.sessionRecovery.current}
                         </span>
                       )}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
-                      Created: {formatDate(session.createdAt)}
+                      {t.sessionRecovery.created}: {formatDate(session.createdAt)}
                       {session.completedAt && (
-                        <span className="ml-4">Completed: {formatDate(session.completedAt)}</span>
+                        <span className="ml-4">{t.sessionRecovery.completed}: {formatDate(session.completedAt)}</span>
                       )}
                       {session.lastHeartbeat && (
-                        <span className="ml-4">Last activity: {formatDate(session.lastHeartbeat)}</span>
+                        <span className="ml-4">{t.sessionRecovery.lastActivity}: {formatDate(session.lastHeartbeat)}</span>
                       )}
                     </div>
                   </div>
@@ -216,7 +231,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                     </div>
                   ) : sessionDetails ? (
                     <div>
-                      <h4 className="font-medium mb-2">Audio Files:</h4>
+                      <h4 className="font-medium mb-2">{t.sessionRecovery.audioFiles}:</h4>
                       <div className="space-y-1">
                         {sessionDetails.audioFiles?.map((file: any) => (
                           <div key={file.id} className="flex justify-between items-center text-sm">
@@ -232,19 +247,19 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
                             onClick={() => handleResumeSession(session.id)}
                             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded mr-2"
                           >
-                            Resume Recording
+                            {t.sessionRecovery.resumeRecording}
                           </button>
                           <button
                             onClick={() => handleFinishSession(session.id)}
                             className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded"
                           >
-                            Mark as Complete
+                            {t.sessionRecovery.markAsComplete}
                           </button>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <p className="text-red-600 text-sm">Failed to load session details.</p>
+                    <p className="text-red-600 text-sm">{t.sessionRecovery.failedToLoadDetails}</p>
                   )}
                 </div>
               )}
@@ -253,7 +268,7 @@ export function SessionHistory({ onResumeSession, currentSessionId }: SessionHis
           
           {sessions.length > 10 && (
             <p className="text-center text-gray-500 text-sm mt-4">
-              Showing latest 10 sessions of {sessions.length} total
+              {t.sessionRecovery.showingLatest.replace('{total}', sessions.length.toString())}
             </p>
           )}
         </div>

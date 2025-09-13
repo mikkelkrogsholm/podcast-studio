@@ -5,11 +5,12 @@ import { useDualTrackRecording } from '../hooks/useDualTrackRecording';
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
 import { DualTrackControls } from '../components/DualTrackControls';
 import { SessionHistory } from '../components/SessionHistory';
+import { Transcript } from '../components/Transcript';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
-  const { status, events, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
+  const { status, events, transcriptMessages, remoteAudioStream, connect, disconnect } = useRealtimeConnection();
   const { 
     status: recordingStatus, 
     isRecording, 
@@ -42,7 +43,7 @@ export default function HomePage() {
 
     // Connect to OpenAI first if not connected
     if (status !== 'connected') {
-      alert('Please connect to OpenAI first before starting recording');
+      alert(t.alerts.pleaseConnectFirst);
       return;
     }
 
@@ -59,7 +60,7 @@ export default function HomePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create session');
+        throw new Error(t.audioRecording.failedToCreate);
       }
 
       const { sessionId } = await response.json();
@@ -77,13 +78,13 @@ export default function HomePage() {
 
   const handleResumeSession = async (sessionId: string) => {
     if (isRecording) {
-      alert('Please stop the current recording before resuming another session');
+      alert(t.alerts.stopCurrentRecording);
       return;
     }
 
     // Connect to OpenAI first if not connected
     if (status !== 'connected') {
-      alert('Please connect to OpenAI first before resuming recording');
+      alert(t.alerts.pleaseConnectFirst);
       return;
     }
 
@@ -91,7 +92,7 @@ export default function HomePage() {
       // Get session details to verify it exists and get audio info
       const sessionDetails = await getSessionDetails(sessionId);
       if (!sessionDetails) {
-        alert('Failed to load session details');
+        alert(t.alerts.failedToLoadSession);
         return;
       }
 
@@ -102,7 +103,7 @@ export default function HomePage() {
       await startRecording(sessionId, remoteAudioStream);
     } catch (error) {
       console.error('Failed to resume session:', error);
-      alert('Failed to resume session');
+      alert(t.alerts.failedToResumeSession);
     }
   };
 
@@ -191,9 +192,9 @@ export default function HomePage() {
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium text-yellow-800">⚠️ Incomplete Sessions Found</h3>
+              <h3 className="font-medium text-yellow-800">⚠️ {t.sessionRecovery.incompleteSessions}</h3>
               <p className="text-sm text-yellow-700">
-                Some recording sessions were interrupted and may contain recoverable audio data.
+                {t.sessionRecovery.recoveryMessage}
               </p>
             </div>
             <button
@@ -282,6 +283,11 @@ export default function HomePage() {
           isRecording={isRecording}
           onMuteToggle={setMute}
         />
+      </div>
+      
+      {/* Live Transcript */}
+      <div className="mb-8 p-6 border rounded-lg bg-gray-50">
+        <Transcript messages={transcriptMessages} />
       </div>
       
       {/* Connection Section */}
