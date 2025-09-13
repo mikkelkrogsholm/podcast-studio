@@ -155,7 +155,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
           session: {
             modalities: ['audio', 'text'],
             instructions: 'You are Freja, a friendly AI podcast co-host. Be conversational and engaging.',
-            voice: 'alloy',
+            voice: 'cedar',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {

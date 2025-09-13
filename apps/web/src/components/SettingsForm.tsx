@@ -11,7 +11,7 @@ interface SettingsFormProps {
 
 const defaultSettings: Settings = {
   model: 'gpt-4o-realtime-preview',
-  voice: 'alloy',
+  voice: 'cedar',
   temperature: 0.8,
   top_p: 1.0,
   language: 'da-DK',
@@ -216,12 +216,14 @@ export function SettingsForm({ onSettingsChange, disabled = false }: SettingsFor
               ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
             `}
           >
+            <option value="cedar">Cedar</option>
+            <option value="marin">Marin</option>
+            <option value="ash">Ash</option>
+            <option value="ballad">Ballad</option>
+            <option value="coral">Coral</option>
+            <option value="sage">Sage</option>
+            <option value="verse">Verse</option>
             <option value="alloy">Alloy</option>
-            <option value="echo">Echo</option>
-            <option value="fable">Fable</option>
-            <option value="onyx">Onyx</option>
-            <option value="nova">Nova</option>
-            <option value="shimmer">Shimmer</option>
           </select>
         </div>
 

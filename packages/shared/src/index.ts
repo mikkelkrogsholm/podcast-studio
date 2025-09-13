@@ -57,7 +57,7 @@ export type GetMessagesResponse = z.infer<typeof GetMessagesResponseSchema>;
 // Settings schemas for Step 07: Playground Controls and Step 08: Persona/Context
 export const SettingsSchema = z.object({
   model: z.literal('gpt-4o-realtime-preview'),
-  voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']),
+  voice: z.enum(['cedar', 'marin', 'ash', 'ballad', 'coral', 'sage', 'verse', 'alloy']),
   temperature: z.number().min(0.0).max(1.0),
   top_p: z.number().min(0.0).max(1.0),
   language: z.enum(['da-DK', 'en-US']),

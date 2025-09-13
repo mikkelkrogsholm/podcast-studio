@@ -19,7 +19,7 @@ const CreateMessageRequestSchema = z.object({
 // Settings schema for Step 07 with defaults
 const SettingsSchema = z.object({
   model: z.literal('gpt-4o-realtime-preview').default('gpt-4o-realtime-preview'),
-  voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']).default('alloy'),
+  voice: z.enum(['cedar', 'marin', 'ash', 'ballad', 'coral', 'sage', 'verse', 'alloy']).default('cedar'),
   temperature: z.number().min(0.0).max(1.0).default(0.8),
   top_p: z.number().min(0.0).max(1.0).default(1.0),
   language: z.enum(['da-DK', 'en-US']).default('da-DK'),
@@ -82,7 +82,7 @@ app.post('/api/realtime/token', async (req, res) => {
     
     let instructions = 'You are a helpful AI assistant in a podcast studio.'
     let model = 'gpt-4o-realtime-preview-2024-12-17'
-    let voice = 'shimmer'
+    let voice = 'cedar'
     
     // If sessionId is provided, get the session details for custom prompts and settings
     if (sessionId) {
