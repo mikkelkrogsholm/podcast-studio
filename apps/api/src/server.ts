@@ -3,6 +3,7 @@ import cors from 'cors'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
+import { EventEmitter } from 'events'
 import { db } from './db/index.js'
 import { sessions, audioFiles, messages } from './db/schema.js'
 import { runMigrations } from './db/migrate.js'
@@ -50,6 +51,24 @@ const CreateSessionRequestSchema = z.object({
 
 // Load environment variables from .env file in project root
 dotenv.config({ path: path.join(process.cwd(), '../../.env') })
+
+// Global event emitter instance for application events
+export const eventEmitter = new EventEmitter()
+
+// Register no-op subscriber for session:completed events
+eventEmitter.on('session:completed', (payload) => {
+  // No-op subscriber - does nothing by design
+  // This ensures the event is consumed but has no side effects
+  // In development mode, we log the event for debugging
+  if (process.env['NODE_ENV'] !== 'production') {
+    console.log('[EVENT] session:completed emitted:', {
+      sessionId: payload.sessionId,
+      status: payload.status,
+      duration: payload.duration,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
 
 export const app: Express = express()
 export const PORT = 4201
@@ -673,6 +692,41 @@ app.post('/api/session/:id/finish', async (req, res) => {
         updatedAt: now
       })
       .where(eq(sessions.id, id))
+
+    // Get the updated session for event payload
+    const updatedSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    const completedSession = updatedSession[0]
+
+    if (completedSession) {
+      // Calculate session duration
+      const duration = completedSession.completedAt && completedSession.createdAt
+        ? completedSession.completedAt - completedSession.createdAt
+        : 0
+
+      // Get message count for additional metadata
+      const messageCount = await db.select({ count: count() })
+        .from(messages)
+        .where(eq(messages.sessionId, id))
+
+      // Emit session:completed event with comprehensive payload
+      const eventPayload = {
+        sessionId: id,
+        status: 'completed' as const,
+        duration,
+        completedAt: now,
+        title: completedSession.title,
+        persona_prompt: completedSession.personaPrompt || '',
+        context_prompt: completedSession.contextPrompt || '',
+        messageCount: messageCount[0]?.count || 0
+      }
+
+      try {
+        eventEmitter.emit('session:completed', eventPayload)
+      } catch (eventError) {
+        // Event emission errors should not break the session finish operation
+        console.error('Failed to emit session:completed event:', eventError)
+      }
+    }
 
     return res.json({
       status: 'success',

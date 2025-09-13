@@ -77,3 +77,7 @@ export const CreateSessionWithSettingsRequestSchema = z.object({
 });
 
 export type CreateSessionWithSettingsRequest = z.infer<typeof CreateSessionWithSettingsRequestSchema>;
+
+// Event emitter exports
+export { EventEmitter, createNoOpSubscriber } from './events';
+export type { EventMap, EventListener } from './events';
