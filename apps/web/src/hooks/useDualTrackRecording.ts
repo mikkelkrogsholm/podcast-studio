@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
+import { useKeepalive } from './useKeepalive';
 
 type RecordingStatus = 'idle' | 'requesting-permission' | 'recording' | 'stopping' | 'error';
 
@@ -32,6 +33,9 @@ export function useDualTrackRecording(): DualTrackRecordingState {
   const [recordedDuration, setRecordedDuration] = useState(0);
   const [volumeLevels, setVolumeLevels] = useState<VolumeLevel>({ mikkel: 0, freja: 0 });
   const [muteState, setMuteState] = useState<MuteState>({ mikkel: false, freja: false });
+  
+  // Keepalive functionality
+  const { startKeepalive, stopKeepalive } = useKeepalive();
   
   // MediaRecorder references for both tracks
   const mikkelRecorderRef = useRef<MediaRecorder | null>(null);
@@ -285,6 +289,9 @@ export function useDualTrackRecording(): DualTrackRecordingState {
       mikkelRecorder.start(1000);
       setStatus('recording');
 
+      // Start keepalive heartbeat
+      startKeepalive(sessionId);
+
       // Start timers
       intervalRef.current = setInterval(updateDuration, 1000);
       volumeIntervalRef.current = setInterval(updateVolumeLevels, 100); // Update volume 10x per second
@@ -309,6 +316,9 @@ export function useDualTrackRecording(): DualTrackRecordingState {
 
     try {
       setStatus('stopping');
+
+      // Stop keepalive heartbeat
+      stopKeepalive();
 
       // Clear timers
       if (intervalRef.current) {
@@ -345,6 +355,28 @@ export function useDualTrackRecording(): DualTrackRecordingState {
       if (audioContextRef.current) {
         await audioContextRef.current.close();
         audioContextRef.current = null;
+      }
+
+      // Finalize both audio files and finish the session
+      if (sessionId) {
+        try {
+          // Finalize both audio files
+          await Promise.all([
+            fetch(`http://localhost:4201/api/audio/${sessionId}/mikkel/finalize`, { method: 'POST' }),
+            fetch(`http://localhost:4201/api/audio/${sessionId}/freja/finalize`, { method: 'POST' })
+          ]);
+
+          // Mark session as completed
+          await fetch(`http://localhost:4201/api/session/${sessionId}/finish`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        } catch (error) {
+          console.error('Failed to finalize session:', error);
+          // Don't prevent normal cleanup even if finalization fails
+        }
       }
 
       setStatus('idle');

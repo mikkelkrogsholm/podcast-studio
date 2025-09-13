@@ -132,6 +132,8 @@ Additional documentation is available in the `docs/` folder:
 - **[internationalization.md](docs/internationalization.md)** - i18n implementation guide for Danish/English support
 - **[openai-integration.md](docs/openai-integration.md)** - OpenAI Realtime API setup and connection guide
 - **[step-03-implementation.md](docs/step-03-implementation.md)** - Technical details for Step 3 audio recording implementation
+- **[step-04-dual-track-recording.md](docs/step-04-dual-track-recording.md)** - Dual-track voice recording with OpenAI Realtime API
+- **[step-05-auto-save-recovery.md](docs/step-05-auto-save-recovery.md)** - Auto-save functionality and crash recovery mechanisms
 
 ## Important Constraints
 - **No over-engineering**: Build only what's needed for the current step
