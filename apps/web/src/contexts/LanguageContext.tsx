@@ -155,6 +155,30 @@ interface Translations {
     reconnectFailed: string;
     maxReconnectAttempts: string;
   };
+  sessionHistory: {
+    title: string;
+    noSessions: string;
+    titleColumn: string;
+    dateColumn: string;
+    durationColumn: string;
+    statusColumn: string;
+    backToSessions: string;
+    sessionNotFound: string;
+    loadingError: string;
+    next: string;
+    previous: string;
+    downloadHuman: string;
+    downloadAi: string;
+    downloadTranscript: string;
+    downloadSession: string;
+    messageCount: string;
+    personaPrompt: string;
+    contextPrompt: string;
+    sessionDetails: string;
+    audioFiles: string;
+    downloads: string;
+    transcriptPreview: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -309,6 +333,30 @@ const translations: Record<Language, Translations> = {
       reconnectFailed: 'Genopretning fejlede',
       maxReconnectAttempts: 'Maksimale genopretningsforsøg nået',
     },
+    sessionHistory: {
+      title: 'Sessionshistorik',
+      noSessions: 'Ingen sessioner fundet',
+      titleColumn: 'Titel',
+      dateColumn: 'Dato',
+      durationColumn: 'Varighed',
+      statusColumn: 'Status',
+      backToSessions: 'Tilbage til Sessioner',
+      sessionNotFound: 'Session ikke fundet',
+      loadingError: 'Fejl ved indlæsning',
+      next: 'Næste',
+      previous: 'Forrige',
+      downloadHuman: 'Download Mikkels lydspor',
+      downloadAi: 'Download Frejas lydspor',
+      downloadTranscript: 'Download Transskription',
+      downloadSession: 'Download Session',
+      messageCount: 'beskeder',
+      personaPrompt: 'Persona Prompt',
+      contextPrompt: 'Kontekst Prompt',
+      sessionDetails: 'Sessionsdetaljer',
+      audioFiles: 'Lydfiler',
+      downloads: 'Downloads',
+      transcriptPreview: 'Transskriptionsforhåndsvisning',
+    },
   },
   en: {
     title: 'Podcast Studio',
@@ -460,6 +508,30 @@ const translations: Record<Language, Translations> = {
       reconnecting: 'Reconnecting...',
       reconnectFailed: 'Reconnection failed',
       maxReconnectAttempts: 'Maximum reconnection attempts reached',
+    },
+    sessionHistory: {
+      title: 'Session History',
+      noSessions: 'No sessions found',
+      titleColumn: 'Title',
+      dateColumn: 'Date',
+      durationColumn: 'Duration',
+      statusColumn: 'Status',
+      backToSessions: 'Back to Sessions',
+      sessionNotFound: 'Session not found',
+      loadingError: 'Loading error',
+      next: 'Next',
+      previous: 'Previous',
+      downloadHuman: 'Download Mikkel\'s Audio',
+      downloadAi: 'Download Freja\'s Audio',
+      downloadTranscript: 'Download Transcript',
+      downloadSession: 'Download Session',
+      messageCount: 'messages',
+      personaPrompt: 'Persona Prompt',
+      contextPrompt: 'Context Prompt',
+      sessionDetails: 'Session Details',
+      audioFiles: 'Audio Files',
+      downloads: 'Downloads',
+      transcriptPreview: 'Transcript Preview',
     },
   },
 };
