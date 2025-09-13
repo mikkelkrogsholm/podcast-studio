@@ -11,6 +11,7 @@ interface ConnectionEvent {
 interface RealtimeConnectionState {
   status: ConnectionStatus;
   events: ConnectionEvent[];
+  remoteAudioStream: MediaStream | null;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
@@ -18,6 +19,7 @@ interface RealtimeConnectionState {
 export function useRealtimeConnection(): RealtimeConnectionState {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [events, setEvents] = useState<ConnectionEvent[]>([]);
+  const [remoteAudioStream, setRemoteAudioStream] = useState<MediaStream | null>(null);
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -48,6 +50,15 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    
+    // Clean up audio element
+    if ((window as any).__realtimeAudio) {
+      (window as any).__realtimeAudio.pause();
+      (window as any).__realtimeAudio.srcObject = null;
+      (window as any).__realtimeAudio = null;
+    }
+    
+    setRemoteAudioStream(null);
   }, []);
 
   const connect = useCallback(async () => {
@@ -87,10 +98,23 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       const pc = new RTCPeerConnection();
       peerConnectionRef.current = pc;
 
-      // Handle incoming audio
-      pc.ontrack = (_e) => {
+      // Handle incoming audio from OpenAI
+      pc.ontrack = (event) => {
         addEvent('connecting', 'Received remote audio stream');
-        // In the future, we'll handle the AI audio here
+        const [remoteStream] = event.streams;
+        if (remoteStream) {
+          setRemoteAudioStream(remoteStream);
+          
+          // Create audio element to play AI response
+          const audioElement = new Audio();
+          audioElement.srcObject = remoteStream;
+          audioElement.autoplay = true;
+          
+          // Store reference for cleanup
+          (window as any).__realtimeAudio = audioElement;
+          
+          addEvent('connected', 'AI audio stream ready - you should hear Freja speaking');
+        }
       };
 
       // Add local audio track
@@ -104,6 +128,46 @@ export function useRealtimeConnection(): RealtimeConnectionState {
 
       dc.addEventListener('open', () => {
         addEvent('connected', 'Data channel opened');
+        
+        // Configure session for voice mode with VAD
+        const sessionConfig = {
+          type: 'session.update',
+          session: {
+            modalities: ['audio', 'text'],
+            instructions: 'You are Freja, a friendly AI podcast co-host. Be conversational and engaging.',
+            voice: 'alloy',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: {
+              model: 'whisper-1'
+            },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500
+            },
+            tools: [],
+            tool_choice: 'auto'
+          }
+        };
+        
+        dc.send(JSON.stringify(sessionConfig));
+        addEvent('connected', 'Session configured for voice mode with VAD');
+        
+        // Create initial response to start conversation
+        const createResponse = {
+          type: 'response.create',
+          response: {
+            modalities: ['audio', 'text'],
+            instructions: 'Greet the user and introduce yourself as Freja, their AI podcast co-host.'
+          }
+        };
+        
+        setTimeout(() => {
+          dc.send(JSON.stringify(createResponse));
+          addEvent('connected', 'AI is ready to converse');
+        }, 100);
       });
 
       dc.addEventListener('message', (event) => {
@@ -175,6 +239,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   return {
     status,
     events,
+    remoteAudioStream,
     connect,
     disconnect
   };
