@@ -8,7 +8,6 @@ test('Debug persona persistence step by step', async ({ page }) => {
   
   // Find the fields
   const personaField = page.locator('[data-testid="persona-prompt"]')
-  const contextField = page.locator('[data-testid="context-prompt"]')
   
   // Verify fields exist and are empty initially
   await expect(personaField).toBeVisible()
@@ -19,7 +18,7 @@ test('Debug persona persistence step by step', async ({ page }) => {
   
   // Set value and trigger change event manually via JavaScript
   await personaField.evaluate((el, value) => {
-    el.value = value;
+    (el as HTMLTextAreaElement).value = value;
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }, testPersona);
