@@ -176,13 +176,17 @@ export function useRealtimeConnection(): RealtimeConnectionState {
       dc.addEventListener('open', () => {
         addEvent('connected', 'Data channel opened');
         
-        // Build instructions from persona and context prompts if provided
+        // Build instructions from persona and context prompts
         let instructions = 'You are Freja, a friendly AI podcast co-host. Be conversational and engaging.';
-        if (settings?.persona_prompt) {
-          instructions = settings.persona_prompt;
+
+        // Add persona customization if provided (extends base persona)
+        if (settings?.persona_prompt && settings.persona_prompt.trim()) {
+          instructions += '\n\n' + settings.persona_prompt;
         }
-        if (settings?.context_prompt) {
-          instructions += '\n\nContext: ' + settings.context_prompt;
+
+        // Add context/topic if provided
+        if (settings?.context_prompt && settings.context_prompt.trim()) {
+          instructions += '\n\nToday\'s topic/context: ' + settings.context_prompt;
         }
         
         // Configure session for voice mode with VAD
