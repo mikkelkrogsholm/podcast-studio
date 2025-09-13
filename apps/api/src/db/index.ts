@@ -3,7 +3,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema.js'
 
 // Create or connect to the SQLite database
-const sqlite: DatabaseType = new Database('podcast-studio.db')
+// Use unique database for each test file to avoid conflicts
+const dbName = process.env.NODE_ENV === 'test' 
+  ? `test-${process.pid}-${Date.now()}.db`
+  : 'podcast-studio.db'
+const sqlite: DatabaseType = new Database(dbName)
 
 // Only enable WAL mode and foreign keys in development
 // CI environment has issues with these settings

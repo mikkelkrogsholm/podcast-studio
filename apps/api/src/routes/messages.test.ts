@@ -6,7 +6,7 @@ import { db } from '../db/index.js'
 import { sessions, messages, audioFiles } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
 
-const TEST_PORT = 4399 // Different port for message tests
+const TEST_PORT = 4402 // Unique port for message tests to avoid conflicts
 let server: Server
 
 beforeAll(async () => {
