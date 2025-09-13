@@ -162,6 +162,14 @@ Additional documentation is available in the `docs/` folder:
   - Session list page with responsive table/card view
   - Session details page with complete metadata and download links
   - Bilingual support for all UI elements
+- **[step-12-event-hooks.md](docs/step-12-event-hooks.md)** - Event emitter and extension hooks system
+  - Minimal EventEmitter implementation for future features
+  - session:completed event type with no-op subscriber
+  - Foundation for show notes, RSS feeds, analytics
+- **[step-12-implementation-summary.md](docs/step-12-implementation-summary.md)** - Complete Step 12 implementation details
+  - TDD process and test coverage
+  - Code changes with line numbers
+  - Future extension points
 
 ### UI Components and Styling
 The application uses a modern, minimalist Nordic-inspired design with:
