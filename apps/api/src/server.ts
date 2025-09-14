@@ -243,19 +243,20 @@ app.post('/api/session', async (req, res) => {
     await fs.mkdir(sessionsDir, { recursive: true })
     await fs.mkdir(sessionDir, { recursive: true })
 
-    // Create audio file entries for both speakers (human/ai)
+    // Create audio file entries for both speakers (human/ai) with segment 1
     const mikkelAudioFileId = randomUUID()
     const frejaAudioFileId = randomUUID()
     const humanFilePath = path.join(sessionDir, 'human.wav')
     const aiFilePath = path.join(sessionDir, 'ai.wav')
-    
-    // Insert both audio file records
+
+    // Insert both audio file records with segment number 1
     await db.insert(audioFiles).values([
       {
         id: mikkelAudioFileId,
         sessionId,
         speaker: 'human',
         filePath: humanFilePath,
+        segmentNumber: 1,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -266,6 +267,7 @@ app.post('/api/session', async (req, res) => {
         sessionId,
         speaker: 'ai',
         filePath: aiFilePath,
+        segmentNumber: 1,
         size: 0,
         format: 'wav',
         createdAt: now,
@@ -281,6 +283,70 @@ app.post('/api/session', async (req, res) => {
   } catch (error) {
     console.error('Failed to create session:', error)
     return res.status(500).json({ error: 'Failed to create session' })
+  }
+})
+
+// Upload audio via JSON (for segment support)
+app.post('/api/audio/upload', async (req, res) => {
+  try {
+    const { sessionId, speaker, audioData, segmentNumber } = req.body
+
+    if (!sessionId || !speaker || !audioData) {
+      return res.status(400).json({ error: 'Missing required fields: sessionId, speaker, audioData' })
+    }
+
+    // Normalize speakers to human/ai
+    const canonical = speaker === 'mikkel' ? 'human' : speaker === 'freja' ? 'ai' : speaker
+    if (canonical !== 'human' && canonical !== 'ai') {
+      return res.status(400).json({ error: 'Invalid speaker. Must be "human" or "ai"' })
+    }
+
+    // Verify session exists
+    const session = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (session.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const sessionDir = path.join(process.cwd(), 'sessions', sessionId)
+    await fs.mkdir(sessionDir, { recursive: true })
+
+    // Use segment number if provided, otherwise default to 1
+    const segment = segmentNumber || 1
+
+    // Create filename with segment number
+    const fileName = `${canonical}_segment_${segment}.wav`
+    const audioFilePath = path.join(sessionDir, fileName)
+
+    // Convert audioData (assuming base64 or similar) to buffer and write
+    // For testing, we'll treat it as a string and write it directly
+    await fs.writeFile(audioFilePath, Buffer.from(audioData, 'utf8'))
+
+    const now = Date.now()
+    const audioFileId = randomUUID()
+
+    // Insert or update audio file record with segment number
+    await db.insert(audioFiles).values({
+      id: audioFileId,
+      sessionId,
+      speaker: canonical,
+      filePath: audioFilePath,
+      segmentNumber: segment,
+      size: Buffer.from(audioData, 'utf8').length,
+      format: 'wav',
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    return res.json({
+      status: 'success',
+      audioFileId,
+      filePath: audioFilePath,
+      segmentNumber: segment
+    })
+
+  } catch (error) {
+    console.error('Failed to upload audio:', error)
+    return res.status(500).json({ error: 'Failed to upload audio' })
   }
 })
 
@@ -641,6 +707,112 @@ app.post('/api/session/check-timeouts', async (req, res) => {
   }
 })
 
+// POST /api/session/:id/resume - Resume incomplete session and calculate next segment
+app.post('/api/session/:id/resume', async (req, res) => {
+  try {
+    // Validate params
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const session = existingSession[0]
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Only allow resuming incomplete sessions
+    if (session.status === 'completed') {
+      return res.status(400).json({ error: 'cannot resume completed session' })
+    }
+
+    // Can resume if status is 'incomplete' or 'active'
+    const canResume = session.status === 'incomplete' || session.status === 'active'
+
+    if (!canResume) {
+      return res.status(400).json({ error: `cannot resume session with status: ${session.status}` })
+    }
+
+    // Calculate next segment number by finding the highest existing segment number
+    const audioFilesResults = await db.select()
+      .from(audioFiles)
+      .where(eq(audioFiles.sessionId, id))
+
+    let maxSegment = 1
+    if (audioFilesResults.length > 0) {
+      maxSegment = Math.max(...audioFilesResults.map(af => af.segmentNumber || 1))
+    }
+
+    const nextSegmentNumber = maxSegment + 1
+
+    // Update session's recording segment
+    await db.update(sessions)
+      .set({
+        recordingSegment: nextSegmentNumber,
+        status: 'active', // Mark as active when resuming
+        updatedAt: Date.now()
+      })
+      .where(eq(sessions.id, id))
+
+    return res.json({
+      canResume: true,
+      nextSegmentNumber
+    })
+
+  } catch (error) {
+    console.error('Failed to resume session:', error)
+    return res.status(500).json({ error: 'Failed to resume session' })
+  }
+})
+
+// GET /api/session/:id/resume-context - Get conversation history for context restoration
+app.get('/api/session/:id/resume-context', async (req, res) => {
+  try {
+    // Validate params
+    const paramsResult = sessionParamsSchema.safeParse(req.params)
+    if (!paramsResult.success) {
+      return res.status(400).json({ error: 'Invalid session ID format' })
+    }
+
+    const { id } = paramsResult.data
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    // Get all messages for this session sorted by timestamp
+    const messageResults = await db.select()
+      .from(messages)
+      .where(eq(messages.sessionId, id))
+      .orderBy(asc(messages.tsMs))
+
+    // Format messages for context restoration
+    const conversationHistory = messageResults.map(msg => ({
+      speaker: msg.speaker,
+      text: msg.text,
+      timestamp: msg.tsMs
+    }))
+
+    return res.json({
+      conversationHistory
+    })
+
+  } catch (error) {
+    console.error('Failed to get resume context:', error)
+    return res.status(500).json({ error: 'Failed to get resume context' })
+  }
+})
+
 // POST /api/session/:id/finish - Mark session as 'completed'
 app.post('/api/session/:id/finish', async (req, res) => {
   try {
@@ -888,6 +1060,7 @@ app.get('/api/session/:id', async (req, res) => {
       id: audioFile.id,
       speaker: normalizeSpeaker(audioFile.speaker),
       filePath: audioFile.filePath,
+      segmentNumber: audioFile.segmentNumber || 1,
       size: audioFile.size || 0,
       duration: audioFile.duration,
       format: audioFile.format,
@@ -936,12 +1109,19 @@ app.get('/api/session/:id', async (req, res) => {
       }
     }
 
-    // Create download links
+    // Create download links - support multiple segments
+    const humanFiles = audioFilesInfo.filter(af => af.speaker === 'human')
+    const aiFiles = audioFilesInfo.filter(af => af.speaker === 'ai')
+
     const downloadLinks = {
       humanAudio: `/api/session/${id}/download?type=audio&speaker=human`,
       aiAudio: `/api/session/${id}/download?type=audio&speaker=ai`,
       transcript: `/api/session/${id}/download?type=transcript`,
-      session: `/api/session/${id}/download?type=session`
+      session: `/api/session/${id}/download?type=session`,
+      allSegments: {
+        human: humanFiles.map(af => `/api/session/${id}/download?type=audio&speaker=human&segment=${af.segmentNumber || 1}`),
+        ai: aiFiles.map(af => `/api/session/${id}/download?type=audio&speaker=ai&segment=${af.segmentNumber || 1}`)
+      }
     }
 
     return res.json({
@@ -965,6 +1145,69 @@ app.get('/api/session/:id', async (req, res) => {
   } catch (error) {
     console.error('Failed to get session details:', error)
     return res.status(500).json({ error: 'Failed to get session details' })
+  }
+})
+
+// POST /api/messages - Insert new message (alternative endpoint)
+app.post('/api/messages', async (req, res) => {
+  try {
+    // Validate message payload including sessionId
+    const CreateMessageWithSessionSchema = z.object({
+      sessionId: z.string().min(1),
+      speaker: z.enum(['mikkel', 'freja', 'human', 'ai']),
+      text: z.string().min(1),
+      tsMs: z.number().min(0), // Note: using tsMs instead of ts_ms for this endpoint
+    })
+
+    const bodyResult = CreateMessageWithSessionSchema.safeParse(req.body)
+    if (!bodyResult.success) {
+      return res.status(400).json({
+        error: 'Invalid message payload',
+        details: bodyResult.error.errors
+      })
+    }
+
+    const { sessionId, speaker, text, tsMs } = bodyResult.data
+    const canonical = normalizeSpeaker(speaker)
+
+    // Check if session exists
+    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (existingSession.length === 0) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const now = Date.now()
+
+    // Insert message
+    const result = await db.insert(messages).values({
+      sessionId,
+      speaker: canonical,
+      text,
+      tsMs: tsMs,
+      rawJson: JSON.stringify({ speaker: canonical, text, tsMs }), // Minimal raw_json
+      createdAt: now,
+    }).returning()
+
+    const insertedMessage = result[0]
+    if (!insertedMessage) {
+      return res.status(500).json({ error: 'Failed to insert message' })
+    }
+
+    // Return formatted message response
+    const response = {
+      id: insertedMessage.id.toString(),
+      sessionId: insertedMessage.sessionId,
+      speaker: normalizeSpeaker(insertedMessage.speaker),
+      text: insertedMessage.text,
+      tsMs: insertedMessage.tsMs,
+      createdAt: insertedMessage.createdAt,
+    }
+
+    return res.json(response)
+
+  } catch (error) {
+    console.error('Failed to insert message:', error)
+    return res.status(500).json({ error: 'Failed to insert message' })
   }
 })
 

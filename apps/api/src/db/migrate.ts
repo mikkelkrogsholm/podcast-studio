@@ -41,7 +41,10 @@ const migrations = [
   `ALTER TABLE sessions ADD COLUMN settings TEXT`,
   // Step 8: Add persona_prompt and context_prompt columns for persona and context prompts
   `ALTER TABLE sessions ADD COLUMN persona_prompt TEXT DEFAULT ''`,
-  `ALTER TABLE sessions ADD COLUMN context_prompt TEXT DEFAULT ''`
+  `ALTER TABLE sessions ADD COLUMN context_prompt TEXT DEFAULT ''`,
+  // Issue #25: Add segment tracking fields for session resume functionality
+  `ALTER TABLE sessions ADD COLUMN recording_segment INTEGER DEFAULT 1`,
+  `ALTER TABLE audio_files ADD COLUMN segment_number INTEGER DEFAULT 1`
 ]
 
 export async function runMigrations(): Promise<void> {

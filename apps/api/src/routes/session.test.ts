@@ -644,6 +644,302 @@ describe('Step 11: Session History and Details', () => {
   })
 })
 
+describe('Issue #25: Session Resume with New Audio Files', () => {
+  describe('Session Resume API Endpoints', () => {
+    it('should detect resumable incomplete sessions', async () => {
+      // Create a session and mark it as incomplete
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Resumable Test Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Mark session as incomplete
+      await db
+        .update(sessions)
+        .set({ status: 'incomplete' })
+        .where(eq(sessions.id, sessionId))
+
+      // Call resume detection endpoint
+      const resumeResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/resume`, {
+        method: 'POST'
+      })
+
+      expect(resumeResponse.status).toBe(200) // This will fail until resume endpoint is implemented
+
+      const resumeData = await resumeResponse.json()
+      expect(resumeData).toHaveProperty('canResume', true) // This will fail until resume logic exists
+      expect(resumeData).toHaveProperty('nextSegmentNumber') // This will fail until segment tracking exists
+      expect(resumeData.nextSegmentNumber).toBe(2) // This will fail until segment numbering works
+    })
+
+    it('should track segment numbers for resumed sessions', async () => {
+      // Create session with existing audio files (segment 1)
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Segment Tracking Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Add initial audio files for segment 1 using the proper API
+      await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'human',
+          audioData: 'test-audio-data-human-segment-1',
+          segmentNumber: 1
+        })
+      })
+
+      await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'ai',
+          audioData: 'test-audio-data-ai-segment-1',
+          segmentNumber: 1
+        })
+      })
+
+      // Mark as incomplete
+      await db
+        .update(sessions)
+        .set({ status: 'incomplete' })
+        .where(eq(sessions.id, sessionId))
+
+      // Resume session
+      const resumeResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/resume`, {
+        method: 'POST'
+      })
+
+      const resumeData = await resumeResponse.json()
+      expect(resumeData.nextSegmentNumber).toBe(2) // This will fail until segment calculation works
+
+      // Create new audio files for segment 2
+      const uploadResponse = await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'human',
+          audioData: 'fake-audio-data-segment-2',
+          segmentNumber: 2
+        })
+      })
+
+      expect(uploadResponse.status).toBe(200) // This will fail until segment upload works
+
+      // Verify new audio file has correct segment naming
+      const updatedSession = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      const sessionDetails = await updatedSession.json()
+
+      const segment2File = sessionDetails.audioFiles.find((f: any) =>
+        f.filePath.includes('human_segment_2.wav')
+      )
+
+      expect(segment2File).toBeDefined() // This will fail until segment file naming works
+      expect(segment2File.filePath).toContain('human_segment_2.wav') // This will fail until naming is implemented
+    })
+
+    it('should return previous conversation context for resumed sessions', async () => {
+      // Create session with messages
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Context Resume Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Add some messages to simulate conversation history
+      await fetch(`http://localhost:${TEST_PORT}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'human',
+          text: 'Hello, this is Mikkel',
+          tsMs: Date.now() - 5000
+        })
+      })
+
+      await fetch(`http://localhost:${TEST_PORT}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'ai',
+          text: 'Hi Mikkel! Nice to meet you.',
+          tsMs: Date.now() - 3000
+        })
+      })
+
+      // Mark as incomplete
+      await db
+        .update(sessions)
+        .set({ status: 'incomplete' })
+        .where(eq(sessions.id, sessionId))
+
+      // Get resume context
+      const contextResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/resume-context`)
+
+      expect(contextResponse.status).toBe(200) // This will fail until context endpoint exists
+
+      const contextData = await contextResponse.json()
+      expect(contextData).toHaveProperty('conversationHistory') // This will fail until context extraction works
+      expect(contextData.conversationHistory).toHaveLength(2) // This will fail until message retrieval works
+      expect(contextData.conversationHistory[0].speaker).toBe('human') // This will fail until correct ordering
+      expect(contextData.conversationHistory[1].speaker).toBe('ai') // This will fail until message structure works
+    })
+
+    it('should reject resume of completed sessions', async () => {
+      // Create and complete a session
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Completed Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Mark as completed
+      await db
+        .update(sessions)
+        .set({ status: 'completed', completedAt: Date.now() })
+        .where(eq(sessions.id, sessionId))
+
+      // Try to resume completed session
+      const resumeResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/resume`, {
+        method: 'POST'
+      })
+
+      expect(resumeResponse.status).toBe(400) // This will fail until validation exists
+
+      const errorData = await resumeResponse.json()
+      expect(errorData.error).toContain('cannot resume completed session') // This will fail until error message works
+    })
+
+    it('should create new segment audio files with proper naming', async () => {
+      // Create session with segment 1 files
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Audio Naming Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Upload segment 1 files
+      await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'human',
+          audioData: 'segment-1-data'
+        })
+      })
+
+      // Resume and upload segment 2
+      const resumeResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}/resume`, {
+        method: 'POST'
+      })
+
+      const resumeData = await resumeResponse.json()
+
+      await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          speaker: 'human',
+          audioData: 'segment-2-data',
+          segmentNumber: resumeData.nextSegmentNumber
+        })
+      })
+
+      // Verify file naming
+      const sessionDetails = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      const details = await sessionDetails.json()
+
+      const segment1File = details.audioFiles.find((f: any) =>
+        f.filePath.includes('human_segment_1.wav')
+      )
+      const segment2File = details.audioFiles.find((f: any) =>
+        f.filePath.includes('human_segment_2.wav')
+      )
+
+      expect(segment1File).toBeDefined() // This will fail until segment naming works
+      expect(segment2File).toBeDefined() // This will fail until segment naming works
+      expect(segment1File.filePath).toContain('human_segment_1.wav') // Check for segment naming in file path
+      expect(segment2File.filePath).toContain('human_segment_2.wav') // Check for segment naming in file path
+    })
+
+    it('should support downloading all segments from session history', async () => {
+      // Create session with multiple segments
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Multi-segment Download Session' })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Add multiple segment files using the proper API
+      for (let segment = 1; segment <= 3; segment++) {
+        // Upload human audio for this segment
+        await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            speaker: 'human',
+            audioData: `test-audio-data-human-segment-${segment}`,
+            segmentNumber: segment
+          })
+        })
+
+        // Upload AI audio for this segment
+        await fetch(`http://localhost:${TEST_PORT}/api/audio/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            speaker: 'ai',
+            audioData: `test-audio-data-ai-segment-${segment}`,
+            segmentNumber: segment
+          })
+        })
+      }
+
+      // Get session details with all segments
+      const detailResponse = await fetch(`http://localhost:${TEST_PORT}/api/session/${sessionId}`)
+      const details = await detailResponse.json()
+
+      expect(details.audioFiles).toHaveLength(8) // 2 default files + 6 segment files (3 segments × 2 speakers)
+
+      // Verify download links for all segments
+      expect(details).toHaveProperty('downloadLinks') // This will fail until segment downloads are implemented
+      expect(details.downloadLinks).toHaveProperty('allSegments') // This will fail until multi-segment download works
+      expect(details.downloadLinks.allSegments).toHaveProperty('human') // This will fail until speaker-specific downloads work
+      expect(details.downloadLinks.allSegments).toHaveProperty('ai') // This will fail until speaker-specific downloads work
+    })
+  })
+})
+
 describe('Step 7: Playground Controls (Settings)', () => {
   describe('Session Settings Validation', () => {
     it('should create session with default settings when none provided', async () => {

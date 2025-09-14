@@ -3,6 +3,7 @@
 import { useRealtimeConnection } from '../hooks/useRealtimeConnection';
 import { useDualTrackRecording } from '../hooks/useDualTrackRecording';
 import { useSessionRecovery } from '../hooks/useSessionRecovery';
+import { useSessionResume } from '../hooks/useSessionResume';
 // DualTrackControls now shown in TopBar; import retained not necessary
 import { SessionHistory } from '../components/SessionHistory';
 import { Transcript } from '../components/Transcript';
@@ -22,10 +23,12 @@ export default function HomePage() {
   const { status, transcriptMessages, isTranscriptLoading, transcriptError, remoteAudioStream, isAiSpeaking, connect, disconnect, interrupt } = useRealtimeConnection(currentSessionId || undefined);
   const { isRecording, paused, volumeLevels, muteState, startRecording, stopRecording, pauseRecording, resumeRecording, setMute } = useDualTrackRecording();
   const { getSessionDetails } = useSessionRecovery();
+  const { resumableSessions, hasResumableSessions, isLoading: isResumeLoading, error: resumeError, resumeSession, getResumeContext } = useSessionResume();
   const router = useRouter();
   const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSessions, setShowSessions] = useState(true);
+  const [currentSegmentNumber, setCurrentSegmentNumber] = useState<number>(1);
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export default function HomePage() {
       if (!response.ok) throw new Error(t.audioRecording.failedToCreate);
       const { sessionId } = await response.json();
       setCurrentSessionId(sessionId);
+      setCurrentSegmentNumber(1);
       await startRecording(sessionId, remoteAudioStream);
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -112,6 +116,47 @@ export default function HomePage() {
     }
   };
 
+  const handleResumeSessionNew = async (sessionId: string) => {
+    if (isRecording) {
+      alert(t.alerts.stopCurrentRecording);
+      return;
+    }
+    if (status !== 'connected') {
+      alert(t.alerts.pleaseConnectFirst);
+      return;
+    }
+
+    try {
+      // Get conversation context for the session
+      const context = await getResumeContext(sessionId);
+
+      // Resume the session
+      const resumeResult = await resumeSession(sessionId);
+      if (!resumeResult.success) {
+        alert(resumeResult.error || t.alerts.failedToResumeSession);
+        return;
+      }
+
+      // Set up the session state
+      setCurrentSessionId(sessionId);
+      setCurrentSegmentNumber(resumeResult.segmentNumber || 1);
+
+      // Connect with conversation context if available
+      if (context && context.conversationHistory.length > 0) {
+        // Reconnect with context
+        disconnect(); // Disconnect first
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for disconnect
+        await connect(currentSettings, context.conversationHistory);
+      }
+
+      // Start recording with the correct segment number
+      await startRecording(sessionId, remoteAudioStream);
+    } catch (error) {
+      console.error('Failed to resume session:', error);
+      alert(t.alerts.failedToResumeSession);
+    }
+  };
+
   const handleConnect = () => {
     if (status === 'disconnected' || status === 'error') connect(currentSettings);
   };
@@ -152,9 +197,67 @@ export default function HomePage() {
         />
       </div>
       <div className="mx-auto max-w-7xl space-y-6">
-          {currentSettings && <CurrentSettings settings={currentSettings} />}        
+          {currentSettings && <CurrentSettings settings={currentSettings} />}
 
-          <Card header={<h2 className="text-xl font-semibold">{t.transcript.title}</h2>}>
+          {/* Resume Session UI */}
+          {hasResumableSessions && !isRecording && (
+            <Card header={<h2 className="text-xl font-semibold">{t.sessionRecovery.incompleteSessions}</h2>}>
+              <div className="space-y-4">
+                <p className="text-gray-600 dark:text-gray-300">
+                  {t.sessionRecovery.recoveryMessage}
+                </p>
+
+                {isResumeLoading ? (
+                  <p className="text-sm text-gray-500">{t.sessionRecovery.loadingSessions}</p>
+                ) : resumeError ? (
+                  <div className="text-red-600 dark:text-red-400">
+                    <p>{t.sessionRecovery.errorLoadingSessions}</p>
+                    <p className="text-sm">{resumeError}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {resumableSessions.slice(0, 3).map((session) => (
+                      <div key={session.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{session.title}</h4>
+                          <p className="text-sm text-gray-500">
+                            {t.sessionRecovery.created}: {new Date(session.createdAt).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {t.sessionRecovery.statusIncomplete} • Segment {session.nextSegmentNumber}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleResumeSessionNew(session.id)}
+                          disabled={status !== 'connected'}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          {t.sessionRecovery.resumeRecording}
+                        </button>
+                      </div>
+                    ))}
+
+                    {resumableSessions.length > 3 && (
+                      <p className="text-sm text-gray-500 text-center">
+                        {t.sessionRecovery.showingLatest.replace('{total}', resumableSessions.length.toString())}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          <Card header={
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">{t.transcript.title}</h2>
+              {isRecording && currentSegmentNumber > 1 && (
+                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
+                  Segment {currentSegmentNumber}
+                </span>
+              )}
+            </div>
+          }>
             <Transcript
               messages={transcriptMessages}
               isLoading={isTranscriptLoading}

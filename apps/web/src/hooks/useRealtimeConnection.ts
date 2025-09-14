@@ -24,7 +24,7 @@ interface RealtimeConnectionState {
   transcriptError: string | null;
   remoteAudioStream: MediaStream | null;
   isAiSpeaking: boolean;
-  connect: (settings?: any) => Promise<void>;
+  connect: (settings?: any, conversationContext?: Array<{ speaker: 'human' | 'ai'; text: string }>) => Promise<void>;
   disconnect: () => void;
   interrupt: () => void;
 }
@@ -124,7 +124,7 @@ export function useRealtimeConnection(sessionId?: string): RealtimeConnectionSta
     }
   }, [status, addEvent, addTranscriptMessage]);
 
-  const attemptConnect = useCallback(async (settings?: any): Promise<void> => {
+  const attemptConnect = useCallback(async (settings?: any, conversationContext?: Array<{ speaker: 'human' | 'ai'; text: string }>): Promise<void> => {
     // Reset AI speaking state on reconnect
     setIsAiSpeaking(false);
 
@@ -229,20 +229,57 @@ export function useRealtimeConnection(sessionId?: string): RealtimeConnectionSta
         
         dc.send(JSON.stringify(sessionConfig));
         addEvent('connected', 'Session configured for voice mode with VAD');
-        
-        // Create initial response to start conversation
-        const createResponse = {
-          type: 'response.create',
-          response: {
-            modalities: ['audio', 'text'],
-            instructions: 'Greet the user and introduce yourself as Freja, their AI podcast co-host.'
+
+        // If conversation context is provided, restore previous conversation
+        if (conversationContext && conversationContext.length > 0) {
+          addEvent('connecting', 'Restoring conversation context...');
+
+          // Add conversation history as conversation items
+          for (const message of conversationContext) {
+            const conversationItem = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'message',
+                role: message.speaker === 'human' ? 'user' : 'assistant',
+                content: [{
+                  type: 'input_text',
+                  text: message.text
+                }]
+              }
+            };
+            dc.send(JSON.stringify(conversationItem));
           }
-        };
-        
-        setTimeout(() => {
-          dc.send(JSON.stringify(createResponse));
-          addEvent('connected', 'AI is ready to converse');
-        }, 100);
+
+          addEvent('connected', `Restored ${conversationContext.length} previous messages`);
+
+          // Create response acknowledging the resume
+          const resumeResponse = {
+            type: 'response.create',
+            response: {
+              modalities: ['audio', 'text'],
+              instructions: 'Acknowledge that you are resuming the previous conversation and ask how you can continue helping.'
+            }
+          };
+
+          setTimeout(() => {
+            dc.send(JSON.stringify(resumeResponse));
+            addEvent('connected', 'AI resumed previous conversation');
+          }, 200);
+        } else {
+          // Create initial response to start conversation
+          const createResponse = {
+            type: 'response.create',
+            response: {
+              modalities: ['audio', 'text'],
+              instructions: 'Greet the user and introduce yourself as Freja, their AI podcast co-host.'
+            }
+          };
+
+          setTimeout(() => {
+            dc.send(JSON.stringify(createResponse));
+            addEvent('connected', 'AI is ready to converse');
+          }, 100);
+        }
       });
 
       dc.addEventListener('message', (event) => {
@@ -336,7 +373,7 @@ export function useRealtimeConnection(sessionId?: string): RealtimeConnectionSta
     }
   }, [status, addEvent, cleanup]);
 
-  const connect = useCallback(async (settings?: any) => {
+  const connect = useCallback(async (settings?: any, conversationContext?: Array<{ speaker: 'human' | 'ai'; text: string }>) => {
     if (status === 'connecting' || status === 'connected') {
       return;
     }
@@ -345,7 +382,7 @@ export function useRealtimeConnection(sessionId?: string): RealtimeConnectionSta
 
     const tryConnect = async (): Promise<void> => {
       try {
-        await attemptConnect(settings);
+        await attemptConnect(settings, conversationContext);
         reconnectAttemptsRef.current = 0; // Reset on successful connection
       } catch (error) {
         reconnectAttemptsRef.current++;
