@@ -8,7 +8,7 @@ interface AudioRecordingState {
   error: string | null;
   sessionId: string | null;
   recordedDuration: number;
-  startRecording: (sessionId: string) => Promise<void>;
+  startRecording: (sessionId: string, segmentNumber?: number) => Promise<void>;
   stopRecording: () => Promise<void>;
 }
 
@@ -17,20 +17,24 @@ export function useAudioRecording(): AudioRecordingState {
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordedDuration, setRecordedDuration] = useState(0);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+  const segmentNumberRef = useRef<number>(1);
 
-  // Upload audio chunk to backend
-  const uploadChunk = useCallback(async (chunk: Blob, sessionId: string) => {
+  // Upload audio chunk to backend with segment support
+  const uploadChunk = useCallback(async (chunk: Blob, sessionId: string, segmentNumber: number = 1) => {
     try {
       // Convert blob to array buffer for raw binary upload
       const arrayBuffer = await chunk.arrayBuffer();
-      
-      const response = await fetch(`http://localhost:4201/api/audio/${sessionId}/mikkel`, {
+
+      // Always use segment-aware path for consistency
+      const endpoint = `http://localhost:4201/api/audio/${sessionId}/human/segment/${segmentNumber}`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'audio/wav',
@@ -54,7 +58,7 @@ export function useAudioRecording(): AudioRecordingState {
     }
   }, []);
 
-  const startRecording = useCallback(async (sessionId: string) => {
+  const startRecording = useCallback(async (sessionId: string, segmentNumber: number = 1) => {
     if (status === 'recording') {
       return;
     }
@@ -66,6 +70,7 @@ export function useAudioRecording(): AudioRecordingState {
       chunksRef.current = [];
       startTimeRef.current = Date.now();
       setRecordedDuration(0);
+      segmentNumberRef.current = segmentNumber;
 
       // Request microphone access with audio constraints for 48kHz, mono
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -103,7 +108,7 @@ export function useAudioRecording(): AudioRecordingState {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
           try {
-            await uploadChunk(event.data, sessionId);
+            await uploadChunk(event.data, sessionId, segmentNumberRef.current);
           } catch (error) {
             console.error('Failed to upload chunk:', error);
             // Don't stop recording on upload error, just log it
@@ -163,7 +168,7 @@ export function useAudioRecording(): AudioRecordingState {
       // Upload any remaining chunks
       if (chunksRef.current.length > 0 && sessionId) {
         const finalBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadChunk(finalBlob, sessionId);
+        await uploadChunk(finalBlob, sessionId, segmentNumberRef.current);
       }
 
       setStatus('idle');
