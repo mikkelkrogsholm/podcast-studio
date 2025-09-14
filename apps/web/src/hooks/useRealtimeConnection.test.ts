@@ -33,12 +33,15 @@ describe('useRealtimeConnection - AI Transcript Handling', () => {
       connectionState: 'connected',
     })) as any;
 
-    global.navigator.mediaDevices = {
-      getUserMedia: vi.fn().mockResolvedValue({
-        getAudioTracks: () => [{ stop: vi.fn() }],
-        getTracks: () => [{ stop: vi.fn() }],
-      }),
-    } as any;
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getAudioTracks: () => [{ stop: vi.fn() }],
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+      },
+      writable: true,
+    });
 
     // Mock fetch for token endpoint
     global.fetch = vi.fn().mockResolvedValue({
