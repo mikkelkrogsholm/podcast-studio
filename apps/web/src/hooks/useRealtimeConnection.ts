@@ -258,14 +258,8 @@ export function useRealtimeConnection(): RealtimeConnectionState {
             setIsAiSpeaking(false);
           }
 
-          // Handle transcript events for AI response
-          if (data.type === 'response.audio_transcript.delta') {
-            if (data.delta) {
-              addTranscriptMessage('ai', data.delta, data);
-            }
-          }
-
-          // Handle full AI response transcript
+          // Handle full AI response transcript only (not delta events)
+          // Delta events are ignored to prevent duplicate word-by-word display
           if (data.type === 'response.audio_transcript.done') {
             if (data.transcript) {
               addTranscriptMessage('ai', data.transcript, data);
