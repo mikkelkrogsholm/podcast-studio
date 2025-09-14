@@ -136,7 +136,8 @@ export function useRealtimeConnection(sessionId?: string): RealtimeConnectionSta
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(sessionId ? { sessionId } : {})
       });
 
       if (!tokenResponse.ok) {

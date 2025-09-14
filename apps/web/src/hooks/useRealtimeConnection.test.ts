@@ -157,4 +157,60 @@ describe('useRealtimeConnection - AI Transcript Handling', () => {
       text: 'Hello, this is a complete message',
     });
   });
+
+  // NEW TESTS: SessionId in token request
+  describe('SessionId Token Request', () => {
+    it('should send sessionId in token request when sessionId is provided', async () => {
+      const testSessionId = 'test-session-123'
+      const { result } = renderHook(() => useRealtimeConnection(testSessionId))
+
+      // Start connection
+      try {
+        await act(async () => {
+          await result.current.connect()
+        })
+      } catch (error) {
+        // Ignore connection errors for this test
+      }
+
+      // Check that fetch was called with sessionId in request body
+      const tokenCall = (global.fetch as any).mock.calls.find((call: any[]) =>
+        call[0] === 'http://localhost:4201/api/realtime/token'
+      )
+
+      expect(tokenCall).toBeDefined()
+      expect(tokenCall[1]).toMatchObject({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const requestBody = JSON.parse(tokenCall[1].body)
+      expect(requestBody).toHaveProperty('sessionId', testSessionId)
+    })
+
+    it('should not send sessionId when sessionId is not provided', async () => {
+      const { result } = renderHook(() => useRealtimeConnection())
+
+      try {
+        await act(async () => {
+          await result.current.connect()
+        })
+      } catch (error) {
+        // Ignore connection errors
+      }
+
+      // Check token request was made
+      const tokenCall = (global.fetch as any).mock.calls.find((call: any[]) =>
+        call[0] === 'http://localhost:4201/api/realtime/token'
+      )
+
+      expect(tokenCall).toBeDefined()
+
+      // Should not have body with sessionId when none provided
+      const requestBody = tokenCall[1].body ? JSON.parse(tokenCall[1].body) : {}
+      expect(requestBody).not.toHaveProperty('sessionId')
+    })
+  })
 });

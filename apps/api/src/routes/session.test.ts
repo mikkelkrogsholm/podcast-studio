@@ -1100,3 +1100,122 @@ describe('Step 7: Playground Controls (Settings)', () => {
     })
   })
 })
+
+describe('AI Danish Persona Bug Fix', () => {
+  describe('/api/realtime/token endpoint with sessionId', () => {
+    it('should use sessionId to fetch and apply Danish persona prompts', async () => {
+      // Create session with Danish persona
+      const createResponse = await fetch(`http://localhost:${TEST_PORT}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Danish Persona Session',
+          persona_prompt: 'Du er Freja, en venlig dansk AI-medvært. Svar altid på dansk.',
+          context_prompt: 'Vi diskuterer danske teknologi trends.'
+        })
+      })
+
+      const sessionData = await createResponse.json()
+      const sessionId = sessionData.sessionId
+
+      // Mock fetch to capture OpenAI session creation request
+      const originalFetch = global.fetch
+      let openaiRequestBody: any = null
+
+      global.fetch = async (url: any, options: any) => {
+        if (url === 'https://api.openai.com/v1/realtime/sessions') {
+          openaiRequestBody = JSON.parse(options.body)
+          return {
+            ok: true,
+            json: () => Promise.resolve({
+              client_secret: { value: 'mock-token' }
+            })
+          }
+        }
+        return originalFetch(url, options)
+      }
+
+      // Request token with sessionId
+      const tokenResponse = await fetch(`http://localhost:${TEST_PORT}/api/realtime/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      })
+
+      expect(tokenResponse.status).toBe(200)
+
+      // Verify OpenAI was called with Danish instructions
+      expect(openaiRequestBody).toBeDefined()
+      expect(openaiRequestBody.instructions).toContain('Du er Freja')
+      expect(openaiRequestBody.instructions).toContain('danske teknologi trends')
+
+      // Restore original fetch
+      global.fetch = originalFetch
+    })
+
+    it('should use default instructions when sessionId not provided', async () => {
+      const originalFetch = global.fetch
+      let openaiRequestBody: any = null
+
+      global.fetch = async (url: any, options: any) => {
+        if (url === 'https://api.openai.com/v1/realtime/sessions') {
+          openaiRequestBody = JSON.parse(options.body)
+          return {
+            ok: true,
+            json: () => Promise.resolve({
+              client_secret: { value: 'mock-token' }
+            })
+          }
+        }
+        return originalFetch(url, options)
+      }
+
+      // Request token without sessionId
+      const tokenResponse = await fetch(`http://localhost:${TEST_PORT}/api/realtime/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      expect(tokenResponse.status).toBe(200)
+
+      // Should use default English instructions
+      expect(openaiRequestBody).toBeDefined()
+      expect(openaiRequestBody.instructions).toContain('helpful AI assistant')
+
+      global.fetch = originalFetch
+    })
+
+    it('should use default instructions when session not found', async () => {
+      const originalFetch = global.fetch
+      let openaiRequestBody: any = null
+
+      global.fetch = async (url: any, options: any) => {
+        if (url === 'https://api.openai.com/v1/realtime/sessions') {
+          openaiRequestBody = JSON.parse(options.body)
+          return {
+            ok: true,
+            json: () => Promise.resolve({
+              client_secret: { value: 'mock-token' }
+            })
+          }
+        }
+        return originalFetch(url, options)
+      }
+
+      // Request token with non-existent sessionId
+      const tokenResponse = await fetch(`http://localhost:${TEST_PORT}/api/realtime/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: 'non-existent-session' })
+      })
+
+      expect(tokenResponse.status).toBe(200)
+
+      // Should fallback to default instructions
+      expect(openaiRequestBody).toBeDefined()
+      expect(openaiRequestBody.instructions).toContain('helpful AI assistant')
+
+      global.fetch = originalFetch
+    })
+  })
+})
