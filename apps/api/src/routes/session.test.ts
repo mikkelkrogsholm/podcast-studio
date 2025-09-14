@@ -3,7 +3,7 @@ import type { Server } from 'http'
 import { app } from '../server.js'
 import { runMigrations } from '../db/migrate.js'
 import { db } from '../db/index.js'
-import { sessions, audioFiles } from '../db/schema.js'
+import { sessions, audioFiles, messages } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
 
 const TEST_PORT = 4398 // Different port for session tests
@@ -29,7 +29,8 @@ afterAll(() => {
 })
 
 beforeEach(async () => {
-  // Clean up any test sessions (delete audio files first to avoid FK constraint)
+  // Clean up any test sessions (delete in correct order to avoid FK constraint)
+  await db.delete(messages)
   await db.delete(audioFiles)
   await db.delete(sessions)
 })
