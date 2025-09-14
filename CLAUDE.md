@@ -133,6 +133,10 @@ Additional documentation is available in the `docs/` folder:
 
 ### Core Technical Guides
 - **[testing-guide.md](docs/testing-guide.md)** - Complete guide for running API and E2E tests, including troubleshooting
+- **[testing-gotchas.md](docs/testing-gotchas.md)** - Common test failures and solutions for CI/CD issues
+  - React Context mocking with Vitest
+  - TypeScript strict checks in tests
+  - Mock persistence for nested components
 - **[webrtc-handshake.md](docs/webrtc-handshake.md)** - WebRTC connection implementation details and security model
 - **[openai-integration.md](docs/openai-integration.md)** - OpenAI Realtime API setup and connection guide
 - **[branch-summary.md](docs/branch-summary.md)** - Feature branch implementation summary and progress tracking
