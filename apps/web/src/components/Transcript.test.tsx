@@ -1,31 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Transcript } from './Transcript';
-// LanguageProvider imported in tests that need it
-
-// Mock the LanguageContext with test translations
-const mockTranslations = {
-  transcript: {
-    title: 'Transcript',
-    human: 'Human',
-    ai: 'AI',
-    willAppearHere: 'Transcript will appear here during recording...',
-    startSpeaking: 'Start speaking to see live transcription'
-  }
-};
-
-const mockLanguageContext = {
-  language: 'en' as const,
-  setLanguage: vi.fn(),
-  t: mockTranslations
-};
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Mock the useLanguage hook
 vi.mock('../contexts/LanguageContext', async () => {
   const actual = await vi.importActual('../contexts/LanguageContext');
   return {
     ...actual,
-    useLanguage: () => mockLanguageContext,
+    useLanguage: vi.fn(() => ({
+      language: 'en' as const,
+      setLanguage: vi.fn(),
+      t: {
+        transcript: {
+          title: 'Transcript',
+          human: 'Human',
+          ai: 'AI',
+          willAppearHere: 'Transcript will appear here during recording...',
+          startSpeaking: 'Start speaking to see live transcription'
+        }
+      }
+    })),
     LanguageProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
   };
 });
@@ -166,10 +161,11 @@ describe('Transcript Component', () => {
     });
 
     it('should display correct speaker names for different languages', () => {
-      // Test with Danish translations
-      const danishMockContext = {
-        ...mockLanguageContext,
+      // Override the mock for this specific test - use mockReturnValue instead of mockReturnValueOnce
+      // because both Transcript and MessageBlock will call useLanguage
+      vi.mocked(useLanguage).mockReturnValue({
         language: 'da' as const,
+        setLanguage: vi.fn(),
         t: {
           transcript: {
             title: 'Transkription',
@@ -179,18 +175,27 @@ describe('Transcript Component', () => {
             startSpeaking: 'Begynd at tale for at se live transkription'
           }
         }
-      };
-
-      // Re-mock for this test
-      vi.doMock('../contexts/LanguageContext', () => ({
-        useLanguage: () => danishMockContext,
-        LanguageProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-      }));
+      });
 
       const messages = [createMessage('human', 'Test message', 1000)];
       render(<Transcript messages={messages} />);
 
       expect(screen.getByText('Menneske')).toBeInTheDocument();
+
+      // Reset the mock to default after the test
+      vi.mocked(useLanguage).mockReturnValue({
+        language: 'en' as const,
+        setLanguage: vi.fn(),
+        t: {
+          transcript: {
+            title: 'Transcript',
+            human: 'Human',
+            ai: 'AI',
+            willAppearHere: 'Transcript will appear here during recording...',
+            startSpeaking: 'Start speaking to see live transcription'
+          }
+        }
+      });
     });
   });
 

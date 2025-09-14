@@ -1,31 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MessageBlock } from './MessageBlock';
-// LanguageProvider imported in tests that need it
-
-// Mock the LanguageContext with test translations
-const mockTranslations = {
-  transcript: {
-    title: 'Transcript',
-    human: 'Human',
-    ai: 'AI',
-    willAppearHere: 'Transcript will appear here during recording...',
-    startSpeaking: 'Start speaking to see live transcription'
-  }
-};
-
-const mockLanguageContext = {
-  language: 'en' as const,
-  setLanguage: vi.fn(),
-  t: mockTranslations
-};
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Mock the useLanguage hook
 vi.mock('../contexts/LanguageContext', async () => {
   const actual = await vi.importActual('../contexts/LanguageContext');
   return {
     ...actual,
-    useLanguage: () => mockLanguageContext,
+    useLanguage: vi.fn(() => ({
+      language: 'en' as const,
+      setLanguage: vi.fn(),
+      t: {
+        transcript: {
+          title: 'Transcript',
+          human: 'Human',
+          ai: 'AI',
+          willAppearHere: 'Transcript will appear here during recording...',
+          startSpeaking: 'Start speaking to see live transcription'
+        }
+      }
+    })),
     LanguageProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
   };
 });
@@ -186,10 +181,10 @@ describe('MessageBlock Component', () => {
     });
 
     it('should display correct speaker names in Danish', () => {
-      // Mock Danish context
-      const danishMockContext = {
-        ...mockLanguageContext,
+      // Override the mock for this specific test
+      vi.mocked(useLanguage).mockReturnValueOnce({
         language: 'da' as const,
+        setLanguage: vi.fn(),
         t: {
           transcript: {
             title: 'Transkription',
@@ -199,13 +194,7 @@ describe('MessageBlock Component', () => {
             startSpeaking: 'Begynd at tale for at se live transkription'
           }
         }
-      };
-
-      // Re-mock for this test
-      vi.doMock('../contexts/LanguageContext', () => ({
-        useLanguage: () => danishMockContext,
-        LanguageProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-      }));
+      });
 
       const humanMessages = [createMessage('human', 'Test', 1000)];
       render(<MessageBlock messages={humanMessages} speaker="human" />);
