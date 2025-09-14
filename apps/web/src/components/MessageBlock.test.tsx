@@ -16,10 +16,11 @@ vi.mock('../contexts/LanguageContext', async () => {
           title: 'Transcript',
           human: 'Human',
           ai: 'AI',
+          noMessages: 'No messages yet',
           willAppearHere: 'Transcript will appear here during recording...',
           startSpeaking: 'Start speaking to see live transcription'
         }
-      }
+      } as any // Cast to any to avoid needing full translation structure in tests
     })),
     LanguageProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
   };
@@ -190,10 +191,11 @@ describe('MessageBlock Component', () => {
             title: 'Transkription',
             human: 'Menneske',
             ai: 'AI',
+            noMessages: 'Ingen beskeder endnu',
             willAppearHere: 'Transkription vil blive vist her under optagelse...',
             startSpeaking: 'Begynd at tale for at se live transkription'
           }
-        }
+        } as any
       });
 
       const humanMessages = [createMessage('human', 'Test', 1000)];
