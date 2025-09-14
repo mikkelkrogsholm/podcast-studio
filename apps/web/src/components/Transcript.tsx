@@ -4,7 +4,7 @@ import { MessageBlock } from './MessageBlock';
 
 interface TranscriptMessage {
   id?: string;
-  speaker: 'human' | 'ai';
+  speaker: 'human' | 'ai' | 'mikkel' | 'freja';
   text: string;
   ts_ms: number;
   raw_json?: Record<string, any>;
@@ -13,9 +13,11 @@ interface TranscriptMessage {
 
 interface TranscriptProps {
   messages: TranscriptMessage[];
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export function Transcript({ messages }: TranscriptProps) {
+export function Transcript({ messages, isLoading, error }: TranscriptProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
 
@@ -30,11 +32,15 @@ export function Transcript({ messages }: TranscriptProps) {
   const groupMessages = (messages: TranscriptMessage[]) => {
     if (messages.length === 0) return [];
 
-    const groups: { speaker: 'human' | 'ai'; messages: TranscriptMessage[] }[] = [];
-    let currentGroup: { speaker: 'human' | 'ai'; messages: TranscriptMessage[] } | null = null;
+    const groups: { speaker: 'human' | 'ai' | 'mikkel' | 'freja'; messages: TranscriptMessage[] }[] = [];
+    let currentGroup: { speaker: 'human' | 'ai' | 'mikkel' | 'freja'; messages: TranscriptMessage[] } | null = null;
 
     for (const message of messages) {
-      if (!currentGroup || currentGroup.speaker !== message.speaker) {
+      // Normalize speaker names for grouping
+      const normalizedSpeaker = message.speaker === 'mikkel' ? 'human' : message.speaker === 'freja' ? 'ai' : message.speaker;
+      const currentNormalizedSpeaker = currentGroup?.speaker === 'mikkel' ? 'human' : currentGroup?.speaker === 'freja' ? 'ai' : currentGroup?.speaker;
+
+      if (!currentGroup || currentNormalizedSpeaker !== normalizedSpeaker) {
         // Start a new group
         currentGroup = {
           speaker: message.speaker,
@@ -58,7 +64,15 @@ export function Transcript({ messages }: TranscriptProps) {
         <h3 className="text-lg font-semibold text-ink">{t.transcript.title}</h3>
       </div>
       <div ref={scrollRef} data-testid="scroll-container" className="h-80 overflow-y-auto p-4">
-        {messages.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center text-ink-muted mt-8">
+            <p>Loading transcript history...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center text-error mt-8">
+            <p>Error loading transcript: {error}</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="text-center text-ink-muted mt-8">
             <p>{t.transcript.willAppearHere}</p>
             <p className="text-sm mt-2">{t.transcript.startSpeaking}</p>

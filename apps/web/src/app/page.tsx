@@ -17,12 +17,12 @@ import { Modal } from '../ui/Modal';
 import { TopBar } from '../components/TopBar';
 
 export default function HomePage() {
-  const { status, transcriptMessages, remoteAudioStream, isAiSpeaking, connect, disconnect, interrupt } = useRealtimeConnection();
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  const { status, transcriptMessages, isTranscriptLoading, transcriptError, remoteAudioStream, isAiSpeaking, connect, disconnect, interrupt } = useRealtimeConnection(currentSessionId || undefined);
   const { isRecording, paused, volumeLevels, muteState, startRecording, stopRecording, pauseRecording, resumeRecording, setMute } = useDualTrackRecording();
   const { getSessionDetails } = useSessionRecovery();
   const router = useRouter();
-
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSessions, setShowSessions] = useState(true);
@@ -155,7 +155,11 @@ export default function HomePage() {
           {currentSettings && <CurrentSettings settings={currentSettings} />}        
 
           <Card header={<h2 className="text-xl font-semibold">{t.transcript.title}</h2>}>
-            <Transcript messages={transcriptMessages} />
+            <Transcript
+              messages={transcriptMessages}
+              isLoading={isTranscriptLoading}
+              error={transcriptError}
+            />
           </Card>
 
           {showSessions && (
