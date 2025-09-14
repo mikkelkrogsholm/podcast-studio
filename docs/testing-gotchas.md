@@ -48,7 +48,54 @@ pnpm test       # Run all tests
 pnpm lint       # Run linting
 ```
 
-### 6. Always Test Before Pushing
+### 6. Mocking React Context with Vitest
+**Problem**: Tests fail with "vi.mocked(...).mockReturnValue is not a function" or type errors
+**Solution**:
+```typescript
+// ❌ Wrong - trying to use external variable in vi.mock
+const mockUseLanguage = vi.fn();
+vi.mock('../contexts/LanguageContext', () => ({
+  useLanguage: mockUseLanguage // Error: can't access before initialization
+}));
+
+// ✅ Correct - define mock inline and use vi.mocked in tests
+vi.mock('../contexts/LanguageContext', () => ({
+  useLanguage: vi.fn(() => ({ /* default mock */ }))
+}));
+
+// In tests:
+import { useLanguage } from '../contexts/LanguageContext';
+vi.mocked(useLanguage).mockReturnValueOnce({ /* test-specific mock */ });
+```
+
+### 7. TypeScript Strict Checks in Tests
+**Problem**: Mock objects fail TypeScript checks due to missing properties
+**Solution**: Use `as any` for partial mocks in tests:
+```typescript
+// ❌ Wrong - TypeScript complains about missing properties
+const mockTranslations = {
+  transcript: { title: 'Test' }
+}; // Error: Missing properties from Translations interface
+
+// ✅ Correct - cast to any for test mocks
+const mockTranslations = {
+  transcript: { title: 'Test' }
+} as any;
+```
+
+### 8. Mock Persistence in Nested Components
+**Problem**: Child components don't get mocked values (e.g., Transcript renders MessageBlock)
+**Solution**: Use `mockReturnValue` instead of `mockReturnValueOnce` for persistent mocks:
+```typescript
+// ❌ Wrong - only mocks first call
+vi.mocked(useLanguage).mockReturnValueOnce({ /* mock */ });
+
+// ✅ Correct - mocks all calls in the test
+vi.mocked(useLanguage).mockReturnValue({ /* mock */ });
+// Remember to reset after test!
+```
+
+### 9. Always Test Before Pushing
 Run these commands locally before pushing:
 ```bash
 pnpm typecheck && pnpm test && pnpm lint
