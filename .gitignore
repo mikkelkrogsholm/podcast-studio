@@ -19,6 +19,11 @@ out/
 *.sqlite-shm
 *.sqlite-wal
 
+# Test databases (extra explicit)
+test-*.db
+test-*.db-shm
+test-*.db-wal
+
 # Environment variables
 .env
 .env.local
@@ -55,6 +60,9 @@ lerna-debug.log*
 sessions/
 uploads/
 audio/
+
+# Test sessions (extra explicit)
+apps/api/sessions/test-*
 
 # Misc
 .cache/

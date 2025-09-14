@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     // Run tests sequentially to avoid database lock issues
     pool: 'forks',
     poolOptions: {
