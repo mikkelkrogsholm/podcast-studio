@@ -48,6 +48,9 @@ pnpm lint       # Run ESLint
 pnpm typecheck  # Run TypeScript type checking
 pnpm format     # Run Prettier
 
+# Pre-push validation (run before pushing to avoid CI failures)
+pnpm typecheck && pnpm test && pnpm lint
+
 # Database
 pnpm db:migrate # Run database migrations
 pnpm db:seed    # Seed development data
@@ -94,6 +97,8 @@ The project follows a 12-step incremental build plan (see context/steps/):
 - TDD for API endpoints and database operations
 - Manual testing for WebRTC/audio features requiring browser permissions
 - Live tests (tagged @live) only run when OPENAI_API_KEY is set
+- **Important**: Vitest runs `.test.ts` files, Playwright runs `.spec.ts` files (keep them separate)
+- **CI Tip**: Always run `pnpm typecheck && pnpm test && pnpm lint` before pushing
 
 ## Agent-Specific Guidance
 
