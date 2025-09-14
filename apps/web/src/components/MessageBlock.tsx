@@ -2,7 +2,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface TranscriptMessage {
   id?: string;
-  speaker: 'human' | 'ai';
+  speaker: 'human' | 'ai' | 'mikkel' | 'freja';
   text: string;
   ts_ms: number;
   raw_json?: Record<string, any>;
@@ -11,7 +11,7 @@ interface TranscriptMessage {
 
 interface MessageBlockProps {
   messages: TranscriptMessage[];
-  speaker: 'human' | 'ai';
+  speaker: 'human' | 'ai' | 'mikkel' | 'freja';
 }
 
 export function MessageBlock({ messages, speaker }: MessageBlockProps) {
@@ -31,8 +31,11 @@ export function MessageBlock({ messages, speaker }: MessageBlockProps) {
     });
   };
 
-  const getSpeakerDisplayName = (speaker: 'human' | 'ai') => {
-    return speaker === 'human' ? t.transcript.human : t.transcript.ai;
+  const getSpeakerDisplayName = (speaker: 'human' | 'ai' | 'mikkel' | 'freja') => {
+    if (speaker === 'human' || speaker === 'mikkel') {
+      return t.transcript.human;
+    }
+    return t.transcript.ai;
   };
 
   const speakerName = getSpeakerDisplayName(speaker);
@@ -46,22 +49,22 @@ export function MessageBlock({ messages, speaker }: MessageBlockProps) {
       role="region"
       aria-label={`${speakerName} message block`}
       className={`message-block ${
-        speaker === 'human' ? 'human-message-block' : 'ai-message-block'
+        (speaker === 'human' || speaker === 'mikkel') ? 'human-message-block' : 'ai-message-block'
       } ${
-        speaker === 'human'
+        (speaker === 'human' || speaker === 'mikkel')
           ? 'flex flex-col items-start mb-4'
           : 'flex flex-col items-end mb-4'
       }`}
     >
       {/* Speaker header with name and timestamp */}
       <div className={`flex items-center gap-2 mb-2 ${
-        speaker === 'human' ? 'flex-row' : 'flex-row-reverse'
+        (speaker === 'human' || speaker === 'mikkel') ? 'flex-row' : 'flex-row-reverse'
       }`}>
         <span
           data-testid="speaker-label"
           role="heading"
           className={`speaker-label font-medium text-sm ${
-            speaker === 'human'
+            (speaker === 'human' || speaker === 'mikkel')
               ? 'human-speaker-label text-blue-600'
               : 'ai-speaker-label text-green-600'
           }`}
@@ -78,7 +81,7 @@ export function MessageBlock({ messages, speaker }: MessageBlockProps) {
 
       {/* Messages container */}
       <div className={`max-w-[70%] space-y-1 ${
-        speaker === 'human'
+        (speaker === 'human' || speaker === 'mikkel')
           ? 'bg-white/90 border-l-4 border-blue-500 rounded-r-xl rounded-tl-xl'
           : 'bg-elevated border-r-4 border-green-500 rounded-l-xl rounded-tr-xl'
       } p-3`}>

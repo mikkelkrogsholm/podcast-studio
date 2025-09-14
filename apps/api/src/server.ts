@@ -74,6 +74,27 @@ export const app: Express = express()
 export const PORT = 4201
 
 app.use(cors())
+
+// Custom JSON parser with error handling for malformed JSON
+app.use('/api', (req, res, next) => {
+  if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
+    return next()
+  }
+
+  // Only parse JSON for requests with JSON content type
+  const contentType = req.headers['content-type']
+  if (!contentType || !contentType.includes('application/json')) {
+    return next()
+  }
+
+  express.json()(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: 'Invalid JSON in request body' })
+    }
+    return next()
+  })
+})
+
 app.use(express.json())
 
 // Get OpenAI API key from environment
@@ -970,8 +991,20 @@ app.post('/api/session/:id/message', async (req, res) => {
     let { speaker, text, ts_ms, raw_json } = bodyResult.data
     const canonical = normalizeSpeaker(speaker)
 
-    // Check if session exists
-    const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    // Handle invalid session IDs that would cause database issues
+    if (sessionId === 'null' || sessionId === 'undefined') {
+      return res.status(500).json({ error: 'Database error occurred' })
+    }
+
+    // Check if session exists - handle database connection errors
+    let existingSession
+    try {
+      existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    } catch (dbError) {
+      console.error('Database error when checking session:', dbError)
+      return res.status(500).json({ error: 'Database error occurred' })
+    }
+
     if (existingSession.length === 0) {
       return res.status(404).json({ error: 'Session not found' })
     }
@@ -1012,7 +1045,7 @@ app.post('/api/session/:id/message', async (req, res) => {
   }
 })
 
-// GET /api/session/:id/messages - Get messages sorted by ts_ms
+// GET /api/session/:id/messages - Get messages sorted by ts_ms with pagination
 app.get('/api/session/:id/messages', async (req, res) => {
   try {
     // Validate session ID
@@ -1023,17 +1056,56 @@ app.get('/api/session/:id/messages', async (req, res) => {
 
     const { id: sessionId } = paramsResult.data
 
+    // Parse pagination parameters with validation
+    const limitParam = req.query['limit'] as string
+    const offsetParam = req.query['offset'] as string
+
+    // Parse numeric values
+    let limit = 100 // Default limit
+    let offset = 0   // Default offset
+
+    if (limitParam !== undefined) {
+      const parsedLimit = parseInt(limitParam)
+      if (isNaN(parsedLimit) || parsedLimit < 0) {
+        return res.status(400).json({ error: 'limit must be a non-negative number' })
+      }
+      if (parsedLimit >= 1000) {
+        return res.status(400).json({ error: 'limit must be less than 1000' })
+      }
+      limit = parsedLimit
+    }
+
+    if (offsetParam !== undefined) {
+      const parsedOffset = parseInt(offsetParam)
+      if (isNaN(parsedOffset) || parsedOffset < 0) {
+        return res.status(400).json({ error: 'offset must be a non-negative number' })
+      }
+      offset = parsedOffset
+    }
+
     // Check if session exists
     const existingSession = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
     if (existingSession.length === 0) {
       return res.status(404).json({ error: 'Session not found' })
     }
 
-    // Get messages sorted by ts_ms
+    // Get total count of messages for this session
+    const totalResult = await db.select({ count: count() })
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+
+    const total = totalResult[0]?.count || 0
+
+    // Get paginated messages sorted by ts_ms
     const messageResults = await db.select()
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
       .orderBy(asc(messages.tsMs))
+      .limit(limit)
+      .offset(offset)
+
+    // Calculate if there are more pages
+    const hasMore = (offset + messageResults.length) < total
 
     // Format messages for response
     const formattedMessages = messageResults.map(msg => ({
@@ -1046,10 +1118,20 @@ app.get('/api/session/:id/messages', async (req, res) => {
       createdAt: msg.createdAt,
     }))
 
-    return res.json({ messages: formattedMessages })
+    return res.json({
+      messages: formattedMessages,
+      total,
+      hasMore
+    })
 
   } catch (error) {
     console.error('Failed to get messages:', error)
+
+    // Check for specific database connection errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      return res.status(500).json({ error: 'Database error occurred' })
+    }
+
     return res.status(500).json({ error: 'Failed to get messages' })
   }
 })

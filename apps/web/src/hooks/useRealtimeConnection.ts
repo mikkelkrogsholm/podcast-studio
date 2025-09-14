@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
+import { useTranscriptPersistence } from './useTranscriptPersistence';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -9,7 +10,7 @@ interface ConnectionEvent {
 }
 
 interface TranscriptMessage {
-  speaker: 'human' | 'ai';
+  speaker: 'human' | 'ai' | 'mikkel' | 'freja';
   text: string;
   ts_ms: number;
   raw_json: Record<string, any>;
@@ -19,6 +20,8 @@ interface RealtimeConnectionState {
   status: ConnectionStatus;
   events: ConnectionEvent[];
   transcriptMessages: TranscriptMessage[];
+  isTranscriptLoading: boolean;
+  transcriptError: string | null;
   remoteAudioStream: MediaStream | null;
   isAiSpeaking: boolean;
   connect: (settings?: any) => Promise<void>;
@@ -26,12 +29,17 @@ interface RealtimeConnectionState {
   interrupt: () => void;
 }
 
-export function useRealtimeConnection(): RealtimeConnectionState {
+export function useRealtimeConnection(sessionId?: string): RealtimeConnectionState {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [events, setEvents] = useState<ConnectionEvent[]>([]);
-  const [transcriptMessages, setTranscriptMessages] = useState<TranscriptMessage[]>([]);
   const [remoteAudioStream, setRemoteAudioStream] = useState<MediaStream | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+
+  // Local state fallback for when no sessionId is provided (tests, previews)
+  const [localTranscriptMessages, setLocalTranscriptMessages] = useState<TranscriptMessage[]>([]);
+
+  // Use transcript persistence hook when sessionId is provided
+  const transcriptPersistence = useTranscriptPersistence(sessionId || 'temp-session')
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -49,15 +57,22 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     setStatus(status);
   }, []);
 
-  const addTranscriptMessage = useCallback((speaker: 'human' | 'ai', text: string, rawEvent: any) => {
-    const message: TranscriptMessage = {
+  const addTranscriptMessage = useCallback(async (speaker: 'human' | 'ai', text: string, rawEvent: any) => {
+    const message = {
       speaker,
       text,
       ts_ms: Date.now(),
       raw_json: rawEvent
     };
-    setTranscriptMessages(prev => [...prev, message]);
-  }, []);
+
+    // If sessionId is provided, persist the message; otherwise, use local state fallback
+    if (sessionId) {
+      await transcriptPersistence.addMessage(message);
+    } else {
+      // For preview/testing without session, use local state for backward compatibility
+      setLocalTranscriptMessages(prev => [...prev, message]);
+    }
+  }, [sessionId, transcriptPersistence]);
 
   const cleanup = useCallback(() => {
     if (dataChannelRef.current) {
@@ -83,7 +98,7 @@ export function useRealtimeConnection(): RealtimeConnectionState {
     }
     
     setRemoteAudioStream(null);
-    setTranscriptMessages([]);
+    setLocalTranscriptMessages([]);
     setIsAiSpeaking(false);
   }, []);
 
@@ -394,7 +409,9 @@ export function useRealtimeConnection(): RealtimeConnectionState {
   return {
     status,
     events,
-    transcriptMessages,
+    transcriptMessages: sessionId ? transcriptPersistence.messages : localTranscriptMessages,
+    isTranscriptLoading: sessionId ? transcriptPersistence.isLoading : false,
+    transcriptError: sessionId ? transcriptPersistence.error : null,
     remoteAudioStream,
     isAiSpeaking,
     connect,
