@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Transcript } from './Transcript';
-import { LanguageProvider } from '../contexts/LanguageContext';
+// LanguageProvider imported in tests that need it
 
 // Mock the LanguageContext with test translations
 const mockTranslations = {
@@ -197,11 +197,11 @@ describe('Transcript Component', () => {
   describe('Auto-scroll Functionality', () => {
     it('should maintain auto-scroll behavior when messages are added', () => {
       // Mock scrollTop and scrollHeight
-      const mockScrollElement = {
-        scrollTop: 0,
-        scrollHeight: 1000,
-        offsetHeight: 400
-      };
+      // const mockScrollElement = {
+      //   scrollTop: 0,
+      //   scrollHeight: 1000,
+      //   offsetHeight: 400
+      // };
 
       const scrollIntoViewMock = vi.fn();
       Element.prototype.scrollIntoView = scrollIntoViewMock;

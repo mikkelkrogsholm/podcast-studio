@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MessageBlock } from './MessageBlock';
-import { LanguageProvider } from '../contexts/LanguageContext';
+// LanguageProvider imported in tests that need it
 
 // Mock the LanguageContext with test translations
 const mockTranslations = {
